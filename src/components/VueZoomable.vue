@@ -1,8 +1,8 @@
 <template>
   <div ref="container" class="container" :class="$style.container" @dblclick="mouse.onDblClick" @wheel="wheel.onWheel"
     @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
-    <ControllButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
-      @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControllButtons>
+    <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
+      @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControlButtons>
     <slot></slot>
   </div>
 </template>
@@ -13,7 +13,7 @@ import { useMouse } from "../composables/useMouse";
 import { useTouch } from "../composables/useTouch";
 import { useWheel } from "../composables/useWheel";
 import { useButtons } from "../composables/useButtons";
-import ControllButtons from "./ControllButtons.vue";
+import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
 
 const hideOverlay: Ref<boolean> = ref(true);
@@ -152,7 +152,6 @@ let transform = computed(() => {
 function setTransform() {
   if (!transformTarget.value) return;
   transformTarget.value.style.transform = transform.value;
-  transformTarget.value.style.transition = "transform 0.06s ease-out";
 }
 
 watch(
@@ -230,8 +229,6 @@ function onMouseDown(event: MouseEvent) {
 .container {
   overflow: hidden;
   position: relative;
-
-  transition: transform 0.1s ease-out;
 
   -webkit-user-select: none;
   -moz-user-select: none;
