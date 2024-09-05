@@ -1,12 +1,11 @@
 <template>
-  <div style="overflow: hidden">
-    <component :is="Div"></component>
+  <div>
+    <example></example>
   </div>
 </template>
 
 <script setup lang="ts">
-import Div from "./examples/div_example.vue";
-import Svg from "./examples/svg_example.vue";
+import Example from "./examples/ReactivityDemo.vue";
 </script>
 
 <style scoped></style>

@@ -1,20 +1,19 @@
 <template>
-  <div ref="container" class="container" :class="$style.container" @mousedown="onMouseDown" @dblclick="mouse.onDblClick"
-    @touchstart="touch.onTouchStart" @wheel="wheel.onWheel" @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
-    <ControllButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
-      @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControllButtons>
+  <div ref="container" class="container" :class="$style.container" @dblclick="mouse.onDblClick" @wheel="wheel.onWheel"
+    @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
+    <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
+      @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControlButtons>
     <slot></slot>
   </div>
 </template>
 
 <script setup lang="ts">
-import { eventNames } from 'process';
-import { computed, ref, Ref, createApp, provide, onMounted, watch } from 'vue';
+import { computed, ref, Ref, createApp, onMounted, watch } from 'vue';
 import { useMouse } from "../composables/useMouse";
 import { useTouch } from "../composables/useTouch";
 import { useWheel } from "../composables/useWheel";
 import { useButtons } from "../composables/useButtons";
-import ControllButtons from "./ControllButtons.vue";
+import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
 
 const hideOverlay: Ref<boolean> = ref(true);
@@ -105,6 +104,8 @@ let props = defineProps({
 });
 
 let container = ref();
+let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector))
+
 let zoom = ref(props.minZoom);
 if (props.initialZoom >= props.minZoom && props.initialZoom <= props.maxZoom) {
   zoom.value = props.initialZoom;
@@ -130,10 +131,10 @@ watch(
   () => {
     if (props.pan) {
       pan.value.x = props.pan.x;
-      pan.value.x = props.pan.y;
+      pan.value.y = props.pan.y;
     }
   }
-);
+  , { deep: true });
 
 function emit(name: string, event: ZoomableEvent) {
   if (name === "zoom") {
@@ -148,15 +149,9 @@ let transform = computed(() => {
   return `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`;
 });
 
-let element: any = null;
-
 function setTransform() {
-  if (!element) {
-    element = container.value?.querySelector(props.selector);
-  }
-  if (!element) return;
-  element.style.transform = transform.value;
-  element.style.transition = "transform 0.06s ease-out";
+  if (!transformTarget.value) return;
+  transformTarget.value.style.transform = transform.value;
 }
 
 watch(
@@ -218,7 +213,9 @@ function showOverlay() { hideOverlay.value = false; }
 function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHideOverlay; }
 
 let mouse = useMouse(props, emit, pan, zoom, updateHideOverlay);
-let touch = useTouch(props, emit, pan, zoom, updateHideOverlay);
+onMounted(() => {
+  useTouch(props, emit, pan, zoom, updateHideOverlay, container);
+})
 let wheel = useWheel(props, emit, pan, zoom, pressedKeys, updateHideOverlay);
 let button = useButtons(props, emit, pan, zoom, updateHideOverlay);
 
@@ -232,8 +229,6 @@ function onMouseDown(event: MouseEvent) {
 .container {
   overflow: hidden;
   position: relative;
-
-  transition: transform 0.1s ease-out;
 
   -webkit-user-select: none;
   -moz-user-select: none;

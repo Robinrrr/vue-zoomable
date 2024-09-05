@@ -1,6 +1,11 @@
 import { Ref } from "vue";
 import { useMove } from "./move";
 
+interface PanDirection {
+    x: number;
+    y: number;
+}
+
 export function useButtons(
     props: any,
     emit: any,
@@ -11,11 +16,6 @@ export function useButtons(
     const { changeZoom, changePan, goHome } = useMove(props, emit, pan, zoom, setOverlay);
 
     const eventType: string = "controll_button";
-
-    interface PanDirection {
-        x: number;
-        y: number;
-    }
 
     let isHolding = false;
 
