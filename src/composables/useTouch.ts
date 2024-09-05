@@ -1,64 +1,116 @@
 import { Ref } from "vue";
 
+
+function log(prefix: String, ev: PointerEvent) {
+    var s =
+        prefix +
+        ': pointerID = ' +
+        ev.pointerId +
+        ' ; pointerType = ' +
+        ev.pointerType +
+        ' ; isPrimary = ' +
+        ev.isPrimary;
+
+    console.log(s);
+}
+
+
 export function useTouch(
     props: any,
     emit: any,
     pan: Ref<{ x: number, y: number }>,
     zoom: Ref<number>,
-    setOverlay: Function
+    setOverlay: Function,
+    container: Ref<HTMLElement>,
 ) {
+    let evCache = new Array();
+	let prevDiff = -1;
 
-    let dragLoc = {
-        x: 0,
-        y: 0,
-    }
-    function onTouchStart(ev: TouchEvent) {
-        if (!props.touchEnabled) return;
-        let touch = ev.changedTouches.item(ev.changedTouches.length - 1);
-        if (!touch) return;
-        dragLoc = {
-            x: touch.clientX,
-            y: touch.clientY
-        }
-        window.addEventListener("touchmove", onTouchMove, { passive: false });
-        window.addEventListener("touchend", (evEnd: TouchEvent) => {
-            window.removeEventListener("touchmove", onTouchMove);
-            evEnd.preventDefault();
-        });
-    }
+    function remove_event(ev: PointerEvent) {
+		// Remove this event from the target's cache
+		for (var i = 0; i < evCache.length; i++) {
+			if (evCache[i].pointerId == ev.pointerId) {
+				evCache.splice(i, 1);
+				break;
+			}
+		}
+	}
 
-    function onTouchMove(ev: TouchEvent) {
-        if (!props.panEnabled) return;
+	function pointerdown_handler(ev: PointerEvent) {
+		evCache.push(ev);
 
-        let touch = ev.changedTouches.item(ev.changedTouches.length - 1);
-        if (!touch) return;
-        let delta = {
-            x: touch.clientX - dragLoc.x,
-            y: touch.clientY - dragLoc.y,
-        }
-        pan.value = {
-            x: pan.value.x + delta.x,
-            y: pan.value.y + delta.y,
-        }
-        dragLoc = {
-            x: touch.clientX,
-            y: touch.clientY,
-        }
-        let event: ZoomableEvent = {
-            zoom: zoom.value,
-            pan: {
-                x: pan.value.x,
-                y: pan.value.y,
-                deltaX: delta.x,
-                deltaY: delta.y,
-            },
-            type: "touch"
-        };
-        emit("panned", event);
-        ev.preventDefault();
-    }
+		log('pointerDown', ev);
+	}
 
-    return {
-        onTouchStart,
-    }
+    function pointerup_handler(ev: PointerEvent) {
+		log(ev.type, ev);
+		remove_event(ev);
+
+		if (evCache.length < 2) prevDiff = -1;
+	}
+
+    function pointermove_handler(ev: PointerEvent) {
+		log('pointerMove', ev);
+
+        let previousEvent = undefined;
+		for (var i = 0; i < evCache.length; i++) {
+			if (ev.pointerId == evCache[i].pointerId) {
+                previousEvent = evCache[i];
+				evCache[i] = ev;
+				break;
+			}
+		}
+
+        if (previousEvent == undefined) {
+            log('pointerOutsideOfContainer', ev);
+            return
+        }
+
+		// If two pointers are down, check for pinch gestures
+		if (evCache.length == 2) {
+            if (!props.zoomEnabled) return;
+
+			// Calculate the distance between the two pointers
+			var curDiff = Math.sqrt(
+				Math.pow(evCache[1].clientX - evCache[0].clientX, 2) +
+					Math.pow(evCache[1].clientY - evCache[0].clientY, 2),
+			);
+
+			if (prevDiff > 0) {
+				let zoomT = zoom.value;
+
+				zoomT += (curDiff - prevDiff) * 0.01;
+				if (zoomT < props.minZoom) zoomT = props.minZoom;
+				if (zoomT > props.maxZoom) zoomT = props.maxZoom;
+
+				zoom.value = zoomT;
+
+				if (curDiff > prevDiff) {
+					// The distance between the two pointers has increased
+					log('Pinch moving OUT -> Zoom in', ev);
+				}
+				if (curDiff < prevDiff) {
+					// The distance between the two pointers has decreased
+					log('Pinch moving IN -> Zoom out', ev);
+				}
+			}
+
+			// Cache the distance for the next move event
+			prevDiff = curDiff;
+		}
+
+        else if (evCache.length == 1) {
+            if (!props.panEnabled) return;
+
+            pan.value = {
+                x: pan.value.x + (ev.clientX - previousEvent.clientX),
+                y: pan.value.y + (ev.clientY - previousEvent.clientY),
+            }
+
+        }
+	}
+
+    container.value.onpointerdown = pointerdown_handler;
+    window.onpointerup = pointerup_handler;
+    window.onpointermove = pointermove_handler;
 }

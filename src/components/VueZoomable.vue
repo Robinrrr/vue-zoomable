@@ -1,6 +1,6 @@
 <template>
-  <div ref="container" class="container" :class="$style.container" @mousedown="onMouseDown" @dblclick="mouse.onDblClick"
-    @touchstart="touch.onTouchStart" @wheel="wheel.onWheel" @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
+  <div ref="container" class="container" :class="$style.container" @dblclick="mouse.onDblClick" @wheel="wheel.onWheel"
+    @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
     <ControllButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
       @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControllButtons>
     <slot></slot>
@@ -214,7 +214,9 @@ function showOverlay() { hideOverlay.value = false; }
 function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHideOverlay; }
 
 let mouse = useMouse(props, emit, pan, zoom, updateHideOverlay);
-let touch = useTouch(props, emit, pan, zoom, updateHideOverlay);
+onMounted(() => {
+  useTouch(props, emit, pan, zoom, updateHideOverlay, container);
+})
 let wheel = useWheel(props, emit, pan, zoom, pressedKeys, updateHideOverlay);
 let button = useButtons(props, emit, pan, zoom, updateHideOverlay);
 
