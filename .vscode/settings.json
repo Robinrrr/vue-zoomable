@@ -10,5 +10,8 @@
   "vue.codeActions.enabled": true,
   "volar.format.initialIndent": {
     "html": true
-  }
+  },
+  "cSpell.words": [
+    "esnext"
+  ]
 }
