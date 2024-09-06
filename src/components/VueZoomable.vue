@@ -100,6 +100,10 @@ let props = defineProps({
   enableWheelOnKey: {
     type: String,
     default: undefined,
+  },
+  debug: {
+    type: Boolean,
+    default: false,
   }
 });
 

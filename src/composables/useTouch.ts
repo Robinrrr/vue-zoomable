@@ -1,7 +1,17 @@
 import { Ref } from "vue";
 
 
-function log(prefix: String, ev: PointerEvent) {
+export function useTouch(
+    props: any,
+    emit: any,
+    pan: Ref<{ x: number, y: number }>,
+    zoom: Ref<number>,
+    setOverlay: Function,
+    container: Ref<HTMLElement>,
+) {
+	function log(prefix: String, ev: PointerEvent) {
+		if (!props.debug) return;
+
     var s =
         prefix +
         ': pointerID = ' +
@@ -14,20 +24,10 @@ function log(prefix: String, ev: PointerEvent) {
     console.log(s);
 }
 
-
-export function useTouch(
-    props: any,
-    emit: any,
-    pan: Ref<{ x: number, y: number }>,
-    zoom: Ref<number>,
-    setOverlay: Function,
-    container: Ref<HTMLElement>,
-) {
-    let evCache = new Array();
+	let evCache = new Array();
 	let prevDiff = -1;
 
-    function remove_event(ev: PointerEvent) {
-		// Remove this event from the target's cache
+	function remove_event(ev: PointerEvent) {
 		for (var i = 0; i < evCache.length; i++) {
 			if (evCache[i].pointerId == ev.pointerId) {
 				evCache.splice(i, 1);
@@ -42,14 +42,14 @@ export function useTouch(
 		log('pointerDown', ev);
 	}
 
-    function pointerup_handler(ev: PointerEvent) {
+	function pointerup_handler(ev: PointerEvent) {
 		log(ev.type, ev);
 		remove_event(ev);
 
 		if (evCache.length < 2) prevDiff = -1;
 	}
 
-    function pointermove_handler(ev: PointerEvent) {
+	function pointermove_handler(ev: PointerEvent) {
 		log('pointerMove', ev);
 
         let previousEvent = undefined;
@@ -61,14 +61,14 @@ export function useTouch(
 			}
 		}
 
-        if (previousEvent == undefined) {
-            log('pointerOutsideOfContainer', ev);
-            return
-        }
+		if (previousEvent == undefined) {
+				log('pointerOutsideOfContainer', ev);
+				return
+		}
 
 		// If two pointers are down, check for pinch gestures
 		if (evCache.length == 2) {
-            if (!props.zoomEnabled) return;
+			if (!props.zoomEnabled) return;
 
 			// Calculate the distance between the two pointers
 			var curDiff = Math.sqrt(
@@ -113,4 +113,6 @@ export function useTouch(
     container.value.onpointerdown = pointerdown_handler;
     window.onpointerup = pointerup_handler;
     window.onpointermove = pointermove_handler;
+
+		container.value.style.touchAction = 'none';
 }
