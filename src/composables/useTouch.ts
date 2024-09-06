@@ -37,6 +37,9 @@ export function useTouch(
 	}
 
 	function pointerdown_handler(ev: PointerEvent) {
+		if (ev.pointerType === "mouse" && !props.mouseEnabled) return;
+		if (ev.pointerType === "touch" && !props.touchEnabled) return;
+		
 		evCache.push(ev);
 
 		log('pointerDown', ev);
