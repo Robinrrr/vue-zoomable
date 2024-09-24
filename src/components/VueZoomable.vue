@@ -1,8 +1,5 @@
 <template>
-  <div ref="container" class="container" :class="$style.container" @dblclick="mouse.onDblClick" @wheel="wheel.onWheel"
-    @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
-    <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
-      @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControlButtons>
+  <div ref="container" class="container" :class="$style.container">
     <slot></slot>
   </div>
 </template>
@@ -15,42 +12,40 @@ import { useWheel } from "../composables/useWheel";
 import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
+import { relative } from 'path';
 
+const zoom = defineModel('zoom', { default: 1 });
+const panX = defineModel('panX', { default: 0 });
+const panY = defineModel('panY', { default: 0 });
 const dragging = defineModel('dragging', { default: false });
 
 const hideOverlay: Ref<boolean> = ref(true);
 
-let emitNative = defineEmits(["panned", "zoom", "update:zoom", "update:pan"]);
 let props = defineProps({
-  zoom: {
-    type: Number,
-    default: null,
-  },
-
-  pan: {
-    type: Object,
-    default: null,
-  },
   selector: {
     type: String,
     default: "* > *",
+  },
+
+  minZoom: {
+    type: Number,
+    default: 0.5,
   },
   maxZoom: {
     type: Number,
     default: 3,
   },
-  minZoom: {
+
+  maxPan: {
     type: Number,
-    default: 0.5,
+    default: -1,
   },
-  initialPanX: {
+
+  zoomSpeed: {
     type: Number,
-    default: 0,
+    default: 1,
   },
-  initialPanY: {
-    type: Number,
-    default: 0,
-  },
+
   initialZoom: {
     type: Number,
     default: 0.5,
@@ -113,50 +108,11 @@ let props = defineProps({
   },
 });
 
-let container = ref();
-let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector))
-
-let zoom = ref(props.minZoom);
-if (props.initialZoom >= props.minZoom && props.initialZoom <= props.maxZoom) {
-  zoom.value = props.initialZoom;
-}
-if (props.zoom) zoom.value = props.zoom;
-
-let pan = ref({
-  x: props.pan != null ? props.pan.x : props.initialPanX,
-  y: props.pan != null ? props.pan.y : props.initialPanY,
-});
-
-watch(
-  () => props.zoom,
-  () => {
-    if (!isNaN(props.zoom)) {
-      zoom.value = props.zoom;
-    }
-  }
-);
-
-watch(
-  () => props.pan,
-  () => {
-    if (props.pan) {
-      pan.value.x = props.pan.x;
-      pan.value.y = props.pan.y;
-    }
-  }
-  , { deep: true });
-
-function emit(name: string, event: ZoomableEvent) {
-  if (name === "zoom") {
-    emitNative("update:zoom", event.zoom);
-  } else if (name === "panned") {
-    emitNative("update:pan", event.pan);
-  }
-  emitNative(name as any, event);
-}
+let container = ref<HTMLElement>();
+let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector) as HTMLElement)
 
 let transform = computed(() => {
-  return `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`;
+  return `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`;
 });
 
 function setTransform() {
@@ -164,16 +120,136 @@ function setTransform() {
   transformTarget.value.style.transform = transform.value;
 }
 
-watch(
-  transform,
-  () => {
-    setTransform();
-  },
-  {
-    flush: "post",
-  }
-);
+function setZoom({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
+  absolute = (absolute === undefined ? zoom.value : absolute) + relative;
 
+  if (absolute < props.minZoom) absolute = props.minZoom;
+  if (absolute > props.maxZoom) absolute = props.maxZoom;
+
+  zoom.value = absolute;
+}
+
+function setPanX({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
+  absolute = (absolute === undefined ? zoom.value : absolute) + relative;
+  panX.value = absolute;
+}
+
+function setPanY({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
+  absolute = (absolute === undefined ? zoom.value : absolute) + relative;
+  panY.value = absolute;
+}
+
+watch(zoom, () => { setZoom() });
+watch(transform, () => { setTransform(); });
+
+// support touch
+onMounted(() => {
+  let movingEvId = new Set();
+  let evCache = new Array();
+  let prevDiff = -1;
+
+  function log(prefix: String, ev: PointerEvent) {
+    if (!props.debug) return;
+
+    var s =
+      prefix +
+      ': pointerID = ' +
+      ev.pointerId +
+      ' ; pointerType = ' +
+      ev.pointerType +
+      ' ; isPrimary = ' +
+      ev.isPrimary;
+
+    console.log(s);
+  }
+
+  function remove_event(ev: PointerEvent) {
+    for (var i = 0; i < evCache.length; i++) {
+      if (evCache[i].pointerId == ev.pointerId) {
+        evCache.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  function pointerdown_handler(ev: PointerEvent) {
+    if (ev.pointerType === "mouse" && !props.mouseEnabled) return;
+    if (ev.pointerType === "touch" && !props.touchEnabled) return;
+
+    evCache.push(ev);
+
+    log('pointerDown', ev);
+  }
+
+  function pointerup_handler(ev: PointerEvent) {
+    log(ev.type, ev);
+    remove_event(ev);
+
+    movingEvId.delete(ev.pointerId);
+    setTimeout(() => {
+      dragging.value = movingEvId.size > 0;
+    }, props.draggingDelay);
+
+    if (evCache.length < 2) prevDiff = -1;
+  }
+
+  function pointermove_handler(ev: PointerEvent) {
+    log('pointerMove', ev);
+
+    let previousEvent = undefined;
+    for (var i = 0; i < evCache.length; i++) {
+      if (ev.pointerId == evCache[i].pointerId) {
+        previousEvent = evCache[i];
+        evCache[i] = ev;
+        break;
+      }
+    }
+
+    if (previousEvent == undefined) {
+      log('pointerOutsideOfContainer', ev);
+      return
+    }
+
+    movingEvId.add(ev.pointerId);
+    dragging.value = true;
+
+    // If two pointers are down, check for pinch gestures
+    if (evCache.length == 2) {
+      if (!props.zoomEnabled) return;
+
+      // Calculate the distance between the two pointers
+      var curDiff = Math.sqrt(
+        Math.pow(evCache[1].clientX - evCache[0].clientX, 2) +
+        Math.pow(evCache[1].clientY - evCache[0].clientY, 2),
+      );
+
+      if (prevDiff > 0) {
+        zoom.value += (curDiff - prevDiff) * 0.01 * props.zoomSpeed;
+      }
+
+      // Cache the distance for the next move event
+      prevDiff = curDiff;
+    }
+
+    else if (evCache.length == 1) {
+      if (!props.panEnabled) return;
+
+      panX.value = panX.value + (ev.clientX - previousEvent.clientX);
+      panY.value = panY.value + (ev.clientY - previousEvent.clientY);
+
+    }
+  }
+
+  if (container.value) {
+    container.value.onpointerdown = pointerdown_handler;
+  }
+  window.onpointerup = pointerup_handler;
+  window.onpointermove = pointermove_handler;
+});
+
+
+
+/*
 onMounted(() => {
   const placeholder = document.createElement('div');
   const scrollOverlayApp = createApp(ScrollOverlay, { enableWheelOnKey: props.enableWheelOnKey });
@@ -233,6 +309,7 @@ function onMouseDown(event: MouseEvent) {
   updateHideOverlay(true);
   mouse.onMouseDown(event);
 }
+*/
 </script>
 
 <style module>
@@ -244,5 +321,7 @@ function onMouseDown(event: MouseEvent) {
   -moz-user-select: none;
   -ms-user-select: none;
   user-select: none;
+
+  touch-action: none;
 }
 </style>
