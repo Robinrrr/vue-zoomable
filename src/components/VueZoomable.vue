@@ -1,6 +1,10 @@
 <template>
   <div ref="container" class="container" :class="$style.container">
     <slot></slot>
+
+    <ScrollOverlay v-model="showOverlay">
+      Use '{{ props.allowWheelOnKey }}' + 'scroll' to zoom.
+    </ScrollOverlay>
   </div>
 </template>
 
@@ -18,95 +22,58 @@ const zoom = defineModel('zoom', { default: 1 });
 const panX = defineModel('panX', { default: 0 });
 const panY = defineModel('panY', { default: 0 });
 const dragging = defineModel('dragging', { default: false });
+const showOverlay = defineModel('showOverlay', { default: true });
 
 const hideOverlay: Ref<boolean> = ref(true);
 
-let props = defineProps({
-  selector: {
-    type: String,
-    default: "* > *",
-  },
+interface Props {
+  selector?: string;
+  minZoom?: number;
+  maxZoom?: number;
+  maxPan?: number;
 
-  minZoom: {
-    type: Number,
-    default: 0.5,
-  },
-  maxZoom: {
-    type: Number,
-    default: 3,
-  },
+  zoomSpeed?: number;
+  zoomStep?: number;
+  panStep?: number;
 
-  maxPan: {
-    type: Number,
-    default: -1,
-  },
+  panEnabled?: boolean;
+  zoomEnabled?: boolean;
 
-  zoomSpeed: {
-    type: Number,
-    default: 1,
-  },
+  enablePointer?: boolean;
+  enableDoubleClick?: boolean;
+  enableWheel?: boolean;
+  enableControlButton?: boolean;
 
-  initialZoom: {
-    type: Number,
-    default: 0.5,
-  },
-  dblClickZoomStep: {
-    type: Number,
-    default: 0.4,
-  },
-  wheelZoomStep: {
-    type: Number,
-    default: 0.05,
-  },
-  panEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  zoomEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  mouseEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  touchEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  dblClickEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  wheelEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  enableControllButton: {
-    type: Boolean,
-    default: false,
-  },
-  buttonPanStep: {
-    type: Number,
-    default: 15,
-  },
-  buttonZoomStep: {
-    type: Number,
-    default: 0.1,
-  },
-  enableWheelOnKey: {
-    type: String,
-    default: undefined,
-  },
-  debug: {
-    type: Boolean,
-    default: true,
-  },
-  draggingDelay: {
-    type: Number,
-    default: 10,
-  },
+  allowWheelOnKey?: string;
+  debug?: boolean;
+  keepDraggingDelay?: number;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  selector: '* > *',
+  minZoom: 0.5,
+  maxZoom: 3,
+  maxPan: -1,
+
+  zoomSpeed: 1,
+  zoomStep: 0.4,
+  panStep: 15,
+
+
+
+  panEnabled: true,
+  zoomEnabled: true,
+
+  enablePointer: true,
+  enableDoubleClick: true,
+  enableWheel: true,
+  enableControlButton: true,
+
+  allowWheelOnKey: 'Control',
+  keepDraggingDelay: 10,
+  debug: false,
 });
+
 
 let container = ref<HTMLElement>();
 let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector) as HTMLElement)
@@ -126,21 +93,25 @@ function setZoom({ absolute = undefined, relative = 0 }: { absolute?: number, re
   if (absolute < props.minZoom) absolute = props.minZoom;
   if (absolute > props.maxZoom) absolute = props.maxZoom;
 
+  showOverlay.value = false;
   zoom.value = absolute;
 }
 
-function setPanX({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
-  absolute = (absolute === undefined ? zoom.value : absolute) + relative;
-  panX.value = absolute;
+function setPanX() {
+  showOverlay.value = false;
 }
 
-function setPanY({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
-  absolute = (absolute === undefined ? zoom.value : absolute) + relative;
-  panY.value = absolute;
+function setPanY() {
+  showOverlay.value = false;
 }
 
 watch(zoom, () => { setZoom() });
+watch(panX, setPanX);
+watch(panY, setPanY);
 watch(transform, () => { setTransform(); });
+onMounted(() => {
+  setTransform();
+});
 
 // support touch
 onMounted(() => {
@@ -173,11 +144,7 @@ onMounted(() => {
   }
 
   function pointerdown_handler(ev: PointerEvent) {
-    if (ev.pointerType === "mouse" && !props.mouseEnabled) return;
-    if (ev.pointerType === "touch" && !props.touchEnabled) return;
-
     evCache.push(ev);
-
     log('pointerDown', ev);
   }
 
@@ -188,7 +155,7 @@ onMounted(() => {
     movingEvId.delete(ev.pointerId);
     setTimeout(() => {
       dragging.value = movingEvId.size > 0;
-    }, props.draggingDelay);
+    }, props.keepDraggingDelay);
 
     if (evCache.length < 2) prevDiff = -1;
   }
@@ -241,13 +208,52 @@ onMounted(() => {
   }
 
   if (container.value) {
-    container.value.onpointerdown = pointerdown_handler;
+    if (props.enablePointer) {
+      container.value.onpointerdown = pointerdown_handler;
+      window.onpointerup = pointerup_handler;
+      window.onpointermove = pointermove_handler;
+    }
+  } else {
+    console.warn("couldn't find container.");
   }
-  window.onpointerup = pointerup_handler;
-  window.onpointermove = pointermove_handler;
 });
 
+//mousewheel
+onMounted(() => {
+  const pressedKeys = ref(new Set<String>());
 
+  document.addEventListener('keydown', event => {
+    pressedKeys.value.add(event.key);
+    if (event.key === props.allowWheelOnKey) hideOverlay.value = true;
+  });
+  document.addEventListener('keyup', (event) => { pressedKeys.value.delete(event.key); });
+
+  function onWheel(event: WheelEvent) {
+    // check if all conditions are met to scroll
+    if (props.allowWheelOnKey !== undefined && !pressedKeys.value.has(props.allowWheelOnKey)) {
+      showOverlay.value = true;
+      return;
+    }
+
+    setZoom({ relative: props.zoomStep * event.deltaY / Math.abs(event.deltaY) });
+  }
+
+  function disableZoom(event: WheelEvent) {
+    if (event.ctrlKey) event.preventDefault();
+  }
+
+  if (props.enableWheel) {
+    document.addEventListener('wheel', onWheel);
+
+    container.value?.addEventListener('mouseenter', () => {
+      window.addEventListener('wheel', disableZoom, { passive: false });
+    });
+
+    container.value?.addEventListener('mouseleave', () => {
+      window.removeEventListener('wheel', disableZoom)
+    });
+  }
+})
 
 /*
 onMounted(() => {
