@@ -1,4 +1,4 @@
-import { Ref } from "vue";
+import { Ref, ModelRef } from "vue";
 
 
 export function useTouch(
@@ -8,6 +8,7 @@ export function useTouch(
     zoom: Ref<number>,
     setOverlay: Function,
     container: Ref<HTMLElement>,
+		dragging: ModelRef<boolean>,
 ) {
 	function log(prefix: String, ev: PointerEvent) {
 		if (!props.debug) return;
@@ -24,6 +25,7 @@ export function useTouch(
     console.log(s);
 }
 
+	let movingEvId = new Set();
 	let evCache = new Array();
 	let prevDiff = -1;
 
@@ -49,13 +51,18 @@ export function useTouch(
 		log(ev.type, ev);
 		remove_event(ev);
 
+		movingEvId.delete(ev.pointerId);
+		setTimeout(() => {
+			dragging.value = movingEvId.size > 0;
+		}, props.draggingDelay);
+
 		if (evCache.length < 2) prevDiff = -1;
 	}
 
 	function pointermove_handler(ev: PointerEvent) {
 		log('pointerMove', ev);
 
-        let previousEvent = undefined;
+		let previousEvent = undefined;
 		for (var i = 0; i < evCache.length; i++) {
 			if (ev.pointerId == evCache[i].pointerId) {
                 previousEvent = evCache[i];
@@ -68,6 +75,9 @@ export function useTouch(
 				log('pointerOutsideOfContainer', ev);
 				return
 		}
+
+		movingEvId.add(ev.pointerId);
+		dragging.value = true;
 
 		// If two pointers are down, check for pinch gestures
 		if (evCache.length == 2) {

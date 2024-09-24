@@ -8,13 +8,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Ref, createApp, onMounted, watch } from 'vue';
+import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
 import { useMouse } from "../composables/useMouse";
 import { useTouch } from "../composables/useTouch";
 import { useWheel } from "../composables/useWheel";
 import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
+
+const dragging = defineModel('dragging', { default: false });
 
 const hideOverlay: Ref<boolean> = ref(true);
 
@@ -103,8 +105,12 @@ let props = defineProps({
   },
   debug: {
     type: Boolean,
-    default: false,
-  }
+    default: true,
+  },
+  draggingDelay: {
+    type: Number,
+    default: 10,
+  },
 });
 
 let container = ref();
@@ -218,7 +224,7 @@ function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHid
 
 let mouse = useMouse(props, emit, pan, zoom, updateHideOverlay);
 onMounted(() => {
-  useTouch(props, emit, pan, zoom, updateHideOverlay, container);
+  useTouch(props, emit, pan, zoom, updateHideOverlay, container, dragging);
 })
 let wheel = useWheel(props, emit, pan, zoom, pressedKeys, updateHideOverlay);
 let button = useButtons(props, emit, pan, zoom, updateHideOverlay);

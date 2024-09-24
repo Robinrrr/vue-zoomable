@@ -93,12 +93,16 @@
       <label>Selector</label>
       <input type="text" v-model="selector">
     </div>
+
+    <div>
+      <p>{{ dragging ? 'is dragging' : 'not dragging' }}</p>
+    </div>
   </form>
 
   <div v-if="slotContentType === 'svg'">
-    <VueZoomable style="width: 500px; height: 500px; border: 1px solid black" :selector="selector"
-      :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :initialPanX="100" :initialPanY="120" :initialZoom="1.5"
-      :svgChild="true" :dblClickEnabled="dblClickEnabled" :wheelEnabled="mouseWheelZoomEnabled"
+    <VueZoomable v-model:dragging="dragging" style="width: 500px; height: 500px; border: 1px solid black"
+      :selector="selector" :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :initialPanX="100" :initialPanY="120"
+      :initialZoom="1.5" :svgChild="true" :dblClickEnabled="dblClickEnabled" :wheelEnabled="mouseWheelZoomEnabled"
       :mouseEnabled="mouseEnabled" :touchEnabled="touchEnabled" :minZoom="0.3" :maxZoom="2" :dblClickZoomStep="0.4"
       :wheelZoomStep="0.01" v-model:pan="pan" v-model:zoom="zoom"
       :enableWheelOnKey="documentFlow ? 'Control' : undefined" :enableControllButton="enableControllButton"
@@ -111,12 +115,12 @@
     </VueZoomable>
   </div>
   <div v-else>
-    <VueZoomable style="width: 500px; height: 500px; border: 1px solid black" :selector="selector"
-      :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :initialPanX="100" :initialPanY="120" :initialZoom="1.5"
-      :dblClickEnabled="dblClickEnabled" :wheelEnabled="mouseWheelZoomEnabled" :touchEnabled="touchEnabled"
-      :minZoom="0.3" :maxZoom="2" :dblClickZoomStep="0.4" :wheelZoomStep="0.01" v-model:pan="pan" v-model:zoom="zoom"
-      :enableWheelOnKey="documentFlow ? 'Control' : undefined" :enableControllButton="enableControllButton"
-      :mouseEnabled="mouseEnabled" @zoom="showEvent" @panned="showEvent">
+    <VueZoomable v-model:dragging="dragging" style="width: 500px; height: 500px; border: 1px solid black"
+      :selector="selector" :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :initialPanX="100" :initialPanY="120"
+      :initialZoom="1.5" :dblClickEnabled="dblClickEnabled" :wheelEnabled="mouseWheelZoomEnabled"
+      :touchEnabled="touchEnabled" :minZoom="0.3" :maxZoom="2" :dblClickZoomStep="0.4" :wheelZoomStep="0.01"
+      v-model:pan="pan" v-model:zoom="zoom" :enableWheelOnKey="documentFlow ? 'Control' : undefined"
+      :enableControllButton="enableControllButton" :mouseEnabled="mouseEnabled" @zoom="showEvent" @panned="showEvent">
       <div id="zoomable-content">
         <div>
           <div></div>
@@ -281,6 +285,7 @@ function showEvent(ev: any) {
   // };
 }
 
+const dragging = ref(false);
 let zoomEnabled = ref(true);
 let panEnabled = ref(true);
 let dblClickEnabled = ref(true);

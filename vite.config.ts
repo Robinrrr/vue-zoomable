@@ -3,8 +3,30 @@ import vue from '@vitejs/plugin-vue';
 import path from 'path';
 import dts from 'vite-plugin-dts';
 
+const SERVER_CONFIG = {
+	local: {
+		port: 3000,
+	},
+	tunnel: {
+		port: 3000,
+		hmr: {
+			clientPort: 443,
+		},
+	},
+};
+
+const SERVER_MODE = process.env.SERVER_MODE || 'local';
+
+console.log(
+	`Server mode is ${SERVER_MODE}, thus using the server config ${JSON.stringify(
+		SERVER_CONFIG[SERVER_MODE],
+	)}`,
+);
+
+
 // https://vitejs.dev/config/
 export default defineConfig({
+  server: SERVER_CONFIG[SERVER_MODE],
   plugins: [
     vue(),
     dts({
