@@ -13,13 +13,8 @@
 
 <script setup lang="ts">
 import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
-import { useMouse } from "../composables/useMouse";
-import { useTouch } from "../composables/useTouch";
-import { useWheel } from "../composables/useWheel";
-import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
-import { relative } from 'path';
 
 const zoom = defineModel('zoom', { default: 1 });
 const panX = defineModel('panX', { default: 0 });
