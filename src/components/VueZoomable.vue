@@ -83,6 +83,15 @@ const props = withDefaults(defineProps<Props>(), {
   debug: false,
 });
 
+defineExpose({
+  props,
+  zoom,
+  panX,
+  panY,
+  dragging,
+  showOverlay,
+});
+
 
 let container = ref<HTMLElement>();
 let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector) as HTMLElement)
@@ -311,68 +320,6 @@ function buttonHome() {
   panY.value = props.homeY;
   zoom.value = props.homeZoom;
 }
-
-/*
-onMounted(() => {
-  const placeholder = document.createElement('div');
-  const scrollOverlayApp = createApp(ScrollOverlay, { enableWheelOnKey: props.enableWheelOnKey });
-
-  // needs to be injected before it is mounted
-  scrollOverlayApp.provide("hideOverlay", { hideOverlay });
-
-  scrollOverlayApp.mount(placeholder)
-  container.value.appendChild(placeholder);
-
-  setTransform();
-});
-
-
-const pressedKeys: Ref<Set<String>> = ref(new Set<String>());
-
-onMounted(() => {
-  window.addEventListener(
-    'wheel',
-    event => {
-      if (!isInContainer.value || props.enableWheelOnKey !== "Control") return;
-      if (event.ctrlKey) event.preventDefault();
-    }, { passive: false },
-  );
-
-  // track the keys, which are currently pressed
-  document.addEventListener('keydown', (event) => {
-    pressedKeys.value.add(event.key);
-    if (event.key === props.enableWheelOnKey) hideOverlay.value = true;
-  });
-  document.addEventListener('keyup', (event) => { pressedKeys.value.delete(event.key); });
-})
-
-// track if the mouse is in the container
-const isInContainer = ref(false);
-
-// track when the mouse leaves, to then hide the overlay
-function onMouseEnter() {
-  isInContainer.value = true;
-}
-function onMouseLeave() {
-  hideOverlay.value = true;
-  isInContainer.value = false;
-}
-
-function showOverlay() { hideOverlay.value = false; }
-function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHideOverlay; }
-
-let mouse = useMouse(props, emit, pan, zoom, updateHideOverlay);
-onMounted(() => {
-  useTouch(props, emit, pan, zoom, updateHideOverlay, container, dragging);
-})
-let wheel = useWheel(props, emit, pan, zoom, pressedKeys, updateHideOverlay);
-let button = useButtons(props, emit, pan, zoom, updateHideOverlay);
-
-function onMouseDown(event: MouseEvent) {
-  updateHideOverlay(true);
-  mouse.onMouseDown(event);
-}
-*/
 </script>
 
 <style module>
