@@ -19,7 +19,7 @@
     </template>
   </form>
 
-  <VueZoomable ref="childRef" v-bind="form" style="width: 100%; height: 500px; border: 1px solid black">
+  <VueZoomable ref="childRef" v-bind="form" style="width: 100%; aspect-ratio: 1; border: 1px solid black">
     <div id="zoomable-content">
       <div>
         <div></div>
@@ -67,19 +67,20 @@ onMounted(() => {
 </script>
 
 <style>
-.mysvg {
-  height: 100%;
-  width: 100%;
-}
-
 #zoomable-content {
   display: flex;
   flex-direction: column;
+
+  width: 400px;
+  height: 400px;
+
+  background-color: aqua;
 }
 
 #zoomable-content>div {
   display: flex;
   flex-direction: row;
+
 }
 
 #zoomable-content>div>div {
