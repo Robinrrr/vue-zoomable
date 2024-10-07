@@ -43,6 +43,8 @@ interface Props {
   homeY?: number;
   homeZoom?: number;
 
+  keepOverlayOpen?: number;
+
   panEnabled?: boolean;
   zoomEnabled?: boolean;
 
@@ -73,6 +75,8 @@ const props = withDefaults(defineProps<Props>(), {
   homeX: 0,
   homeY: 0,
   homeZoom: 1,
+
+  keepOverlayOpen: 1000,
 
   enablePointer: true,
   enableDoubleClick: true,
@@ -115,13 +119,29 @@ function setPanY() {
   showOverlay.value = false;
 }
 
+
+let lastOverlay = Date.now()
+function changeShowOverlay() {
+  if (showOverlay.value) {
+    lastOverlay = Date.now();
+
+    setTimeout(() => {
+      if (lastOverlay + props.keepOverlayOpen < Date.now()) {
+        showOverlay.value = false;
+      }
+    }, props.keepOverlayOpen + 10);
+  }
+}
+
 watch(zoom, () => { setZoom() });
 watch(panX, setPanX);
 watch(panY, setPanY);
 watch(transform, () => { setTransform(); });
+watch(showOverlay, changeShowOverlay);
 onMounted(() => {
   setTransform();
 });
+
 
 // support touch
 onMounted(() => {
