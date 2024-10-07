@@ -258,16 +258,15 @@ onMounted(() => {
 onMounted(() => {
   if (props.enableDoubleClick) {
     container.value?.addEventListener('dblclick', event => {
-      zoom.value = zoom.value + props.zoomStep;
+      if (container.value) {
+        const deltaX = ((event.clientX - container.value.offsetLeft) - (0.5 * container.value.offsetWidth)) / zoom.value;
+        const deltaY = ((event.clientY - container.value.offsetTop) - (0.5 * container.value.offsetHeight)) / zoom.value;
 
-      if (!container.value) {
-        return;
+        panX.value -= deltaX;
+        panY.value -= deltaY;
       }
-      const deltaX = ((event.clientX - container.value.offsetLeft) - (0.5 * container.value.offsetWidth)) / zoom.value;
-      const deltaY = ((event.clientY - container.value.offsetTop) - (0.5 * container.value.offsetHeight)) / zoom.value;
 
-      panX.value -= deltaX;
-      panY.value -= deltaY;
+      zoom.value = zoom.value + props.zoomStep;
     });
   }
 })
