@@ -2,6 +2,9 @@
   <div ref="container" class="container" :class="$style.container">
     <slot></slot>
 
+    <ControlButtons v-if="props.enableControlButton" @button-pan="buttonPan" @button-zoom="buttonZoom"
+      @button-home="buttonHome" />
+
     <ScrollOverlay v-model="showOverlay">
       Use '{{ props.allowWheelOnKey }}' + 'scroll' to zoom.
     </ScrollOverlay>
@@ -36,6 +39,10 @@ interface Props {
   zoomStep?: number;
   panStep?: number;
 
+  homeX?: number;
+  homeY?: number;
+  homeZoom?: number;
+
   panEnabled?: boolean;
   zoomEnabled?: boolean;
 
@@ -62,6 +69,10 @@ const props = withDefaults(defineProps<Props>(), {
 
   panEnabled: true,
   zoomEnabled: true,
+
+  homeX: 0,
+  homeY: 0,
+  homeZoom: 1,
 
   enablePointer: true,
   enableDoubleClick: true,
@@ -271,6 +282,20 @@ onMounted(() => {
   }
 })
 
+function buttonPan(direction: { x: number, y: number }) {
+  panX.value += props.panStep * direction.x;
+  panY.value += props.panStep * direction.y;
+}
+
+function buttonZoom(direction: number) {
+  zoom.value += props.zoomStep * direction;
+}
+
+function buttonHome() {
+  panX.value = props.homeX;
+  panY.value = props.homeY;
+  zoom.value = props.homeZoom;
+}
 
 /*
 onMounted(() => {
