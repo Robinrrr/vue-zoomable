@@ -22,7 +22,7 @@ const zoom = defineModel('zoom', { default: 1 });
 const panX = defineModel('panX', { default: 0 });
 const panY = defineModel('panY', { default: 0 });
 const dragging = defineModel('dragging', { default: false });
-const showOverlay = defineModel('showOverlay', { default: true });
+const showOverlay = defineModel('showOverlay', { default: false });
 
 const hideOverlay: Ref<boolean> = ref(true);
 
@@ -40,8 +40,9 @@ interface Props {
   zoomEnabled?: boolean;
 
   enablePointer?: boolean;
-  enableDoubleClick?: boolean;
   enableWheel?: boolean;
+
+  enableDoubleClick?: boolean;
   enableControlButton?: boolean;
 
   allowWheelOnKey?: string;
@@ -58,8 +59,6 @@ const props = withDefaults(defineProps<Props>(), {
   zoomSpeed: 1,
   zoomStep: 0.4,
   panStep: 15,
-
-
 
   panEnabled: true,
   zoomEnabled: true,
@@ -254,6 +253,25 @@ onMounted(() => {
     });
   }
 })
+
+// double click
+onMounted(() => {
+  if (props.enableDoubleClick) {
+    container.value?.addEventListener('dblclick', event => {
+      zoom.value = zoom.value + props.zoomStep;
+
+      if (!container.value) {
+        return;
+      }
+      const deltaX = ((event.clientX - container.value.offsetLeft) - (0.5 * container.value.offsetWidth)) / zoom.value;
+      const deltaY = ((event.clientY - container.value.offsetTop) - (0.5 * container.value.offsetHeight)) / zoom.value;
+
+      panX.value -= deltaX;
+      panY.value -= deltaY;
+    });
+  }
+})
+
 
 /*
 onMounted(() => {
