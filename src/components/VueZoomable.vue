@@ -15,6 +15,7 @@
 import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
+import { debug } from 'console';
 
 const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', {
@@ -160,6 +161,17 @@ const transformDimensions = computed(() => {
     y: transformTarget.value.offsetHeight * zoom.value,
   };
 });
+const containerDimensions = computed(() => {
+  if (!container.value) {
+    console.warn("couldn't find container");
+    return transformDimensions.value;
+  }
+
+  return {
+    x: container.value.offsetWidth,
+    y: container.value.offsetHeight,
+  };
+});
 
 function positionToPan({ x = 0, y = 0 }) {
   /*
@@ -183,20 +195,27 @@ function zoomInto({
   change = 1,
   position = { x: 0, y: 0 },
   alpha = undefined,
-}: { change?: number, position?: { x: number, y: number }, alpha?: number }) {
+  centerPosition = false,
+}: { change?: number, position?: { x: number, y: number }, alpha?: number, centerPosition?: boolean }) {
+  function log(name: string, value: any) {
+    if (!props.debug) return;
+
+    console.log("zoom into: " + name, value)
+  }
+
   // calculating new zoom
   zoom.value = zoom.value + (change * props.zoomStep);
 
   // calculating new pan
   const eventPosition = positionToPan(position);
 
-  console.log('zoom', zoom.value)
-  console.log('event position', eventPosition);
-  console.log('pan', {
+  log('zoom', zoom.value)
+  log('event position', eventPosition);
+  log('pan', {
     x: pan.value.x,
     y: pan.value.y,
   });
-  console.log('dimensions', transformDimensions.value)
+  log('dimensions', transformDimensions.value)
 
   // calculate how close I want to go towards the goal
   // number between 0 and 1
@@ -205,14 +224,24 @@ function zoomInto({
     if (alpha > 1) alpha = 1;
   }
 
-  console.log("alpha", alpha);
+  log("alpha", alpha);
 
-  const directionVector = {
-    x: eventPosition.x - (pan.value.x + 0.5 * transformDimensions.value.x),
-    y: eventPosition.y - (pan.value.y + 0.5 * transformDimensions.value.y)
-  };
+  let directionVector: { x: number, y: number };
+  if (centerPosition) {
+    // the place of the transform object of where the mouse cursor was is now in the center
+    directionVector = {
+      x: 0.5 * containerDimensions.value.x - eventPosition.x,
+      y: 0.5 * containerDimensions.value.y - eventPosition.y,
+    };
+  } else {
+    // the center of the transform object will be there, where the mouse cursor was
+    directionVector = {
+      x: eventPosition.x - (pan.value.x + 0.5 * transformDimensions.value.x),
+      y: eventPosition.y - (pan.value.y + 0.5 * transformDimensions.value.y)
+    };
+  }
 
-  console.log('direction', directionVector)
+  log('direction', directionVector)
 
   pan.value = {
     x: pan.value.x + alpha * directionVector.x,
@@ -388,12 +417,13 @@ onMounted(() => {
   if (props.enableDoubleClick) {
     container.value?.addEventListener('dblclick', event => {
       zoomInto({
-        change: 1,
+        change: 0,
         position: {
           x: event.clientX,
           y: event.clientY
         },
         alpha: 1,
+        centerPosition: true,
       });
     });
   }
