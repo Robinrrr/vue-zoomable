@@ -17,8 +17,12 @@ import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
 
 const zoom = defineModel('zoom', { default: 1 });
-const panX = defineModel('panX', { default: 0 });
-const panY = defineModel('panY', { default: 0 });
+const pan = defineModel('pan', {
+  default: {
+    x: 0,
+    y: 0,
+  }
+});
 const dragging = defineModel('dragging', { default: false });
 const showOverlay = defineModel('showOverlay', { default: false });
 
@@ -33,6 +37,7 @@ interface Props {
   zoomSpeed?: number;
   zoomStep?: number;
   panStep?: number;
+  panPerStep?: number;
 
   homeX?: number;
   homeY?: number;
@@ -63,6 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
   zoomSpeed: 1,
   zoomStep: 0.4,
   panStep: 15,
+  panPerStep: 0.2,
 
   panEnabled: true,
   zoomEnabled: true,
@@ -83,27 +89,36 @@ const props = withDefaults(defineProps<Props>(), {
   debug: false,
 });
 
-defineExpose({
-  props,
-  zoom,
-  panX,
-  panY,
-  dragging,
-  showOverlay,
-});
-
 
 let container = ref<HTMLElement>();
 let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector) as HTMLElement)
 
+const transformPanCache = computed(() => {
+  return 0.5 * (1 - zoom.value);
+});
+const transformPan = computed(() => {
+  if (!transformTarget.value) {
+    return {
+      x: 0,
+      y: 0,
+    }
+  }
+
+  return {
+    x: pan.value.x - (transformTarget.value.offsetWidth * transformPanCache.value),
+    y: pan.value.y - (transformTarget.value.offsetHeight * transformPanCache.value)
+  };
+});
+
 let transform = computed(() => {
-  return `translate(${panX.value}px, ${panY.value}px) scale(${zoom.value})`;
+  return `translate(${transformPan.value.x}px, ${transformPan.value.y}px) scale(${zoom.value})`;
 });
 
 function setTransform() {
   if (!transformTarget.value) return;
   transformTarget.value.style.transform = transform.value;
 }
+
 
 function setZoom({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
   absolute = (absolute === undefined ? zoom.value : absolute) + relative;
@@ -113,14 +128,6 @@ function setZoom({ absolute = undefined, relative = 0 }: { absolute?: number, re
 
   showOverlay.value = false;
   zoom.value = absolute;
-}
-
-function setPanX() {
-  showOverlay.value = false;
-}
-
-function setPanY() {
-  showOverlay.value = false;
 }
 
 
@@ -138,14 +145,79 @@ function changeShowOverlay() {
 }
 
 watch(zoom, () => { setZoom() });
-watch(panX, setPanX);
-watch(panY, setPanY);
+watch(pan, () => {
+  showOverlay.value = false;
+}, { deep: true });
 watch(transform, () => { setTransform(); });
 watch(showOverlay, changeShowOverlay);
 onMounted(() => {
   setTransform();
 });
 
+const transformDimensions = computed(() => {
+  return {
+    x: transformTarget.value.offsetWidth * zoom.value,
+    y: transformTarget.value.offsetHeight * zoom.value,
+  };
+});
+
+function positionToPan({ x = 0, y = 0 }) {
+  /*
+  Transforms coordinates relative to the viewport to be relative to the container instead
+  */
+
+  if (!container.value) {
+    console.warn("container doesn't exist.");
+    return { x, y };
+  }
+
+  const boundingRect = container.value.getBoundingClientRect();
+
+  return {
+    x: x - boundingRect.left,
+    y: y - boundingRect.top,
+  };
+}
+
+function zoomInto({
+  change = 1,
+  position = { x: 0, y: 0 },
+  alpha = undefined
+}: { change?: number, position?: { x: number, y: number }, alpha?: number }) {
+  // calculating new pan
+  const eventPosition = positionToPan(position);
+
+  console.log('event position', eventPosition);
+  console.log('pan', {
+    x: pan.value.x,
+    y: pan.value.y,
+  });
+  console.log('dimensions', transformDimensions.value)
+
+  // calculate how close I want to go towards the goal
+  // number between 0 and 1
+  if (alpha === undefined) {
+    alpha = props.panPerStep * change;
+    if (alpha > 1) alpha = 1;
+  }
+
+  console.log("alpha", alpha);
+
+  const directionVector = {
+    x: eventPosition.x - (pan.value.x + 0.5 * transformDimensions.value.x),
+    y: eventPosition.y - (pan.value.y + 0.5 * transformDimensions.value.y)
+  };
+
+  console.log('direction', directionVector)
+
+  pan.value = {
+    x: pan.value.x + alpha * directionVector.x,
+    y: pan.value.y + alpha * directionVector.y,
+  };
+
+  // calculating new zoom
+  zoom.value = zoom.value + (change * props.zoomStep);
+}
 
 // support touch
 onMounted(() => {
@@ -214,7 +286,7 @@ onMounted(() => {
     movingEvId.add(ev.pointerId);
     dragging.value = true;
 
-    // If two pointers are down, check for pinch gestures
+    // zoom (two fingers are touching)
     if (evCache.length == 2) {
       if (!props.zoomEnabled) return;
 
@@ -232,12 +304,12 @@ onMounted(() => {
       prevDiff = curDiff;
     }
 
+    // pan (only one finger is touching)
     else if (evCache.length == 1) {
       if (!props.panEnabled) return;
 
-      panX.value = panX.value + (ev.clientX - previousEvent.clientX);
-      panY.value = panY.value + (ev.clientY - previousEvent.clientY);
-
+      pan.value.x = pan.value.x + (ev.clientX - previousEvent.clientX);
+      pan.value.y = pan.value.y + (ev.clientY - previousEvent.clientY);
     }
   }
 
@@ -293,22 +365,23 @@ onMounted(() => {
 onMounted(() => {
   if (props.enableDoubleClick) {
     container.value?.addEventListener('dblclick', event => {
-      if (container.value) {
-        const deltaX = ((event.clientX - container.value.offsetLeft) - (0.5 * container.value.offsetWidth)) / zoom.value;
-        const deltaY = ((event.clientY - container.value.offsetTop) - (0.5 * container.value.offsetHeight)) / zoom.value;
-
-        panX.value -= deltaX;
-        panY.value -= deltaY;
-      }
-
-      zoom.value = zoom.value + props.zoomStep;
+      zoomInto({
+        change: 1,
+        position: {
+          x: event.clientX,
+          y: event.clientY
+        },
+        alpha: 1,
+      });
     });
   }
 })
 
 function buttonPan(direction: { x: number, y: number }) {
-  panX.value += props.panStep * direction.x;
-  panY.value += props.panStep * direction.y;
+  pan.value = {
+    x: pan.value.x + direction.x,
+    y: pan.value.y + direction.y,
+  }
 }
 
 function buttonZoom(direction: number) {
@@ -316,10 +389,20 @@ function buttonZoom(direction: number) {
 }
 
 function buttonHome() {
-  panX.value = props.homeX;
-  panY.value = props.homeY;
+  pan.value = {
+    x: props.homeX,
+    y: props.homeY,
+  };
   zoom.value = props.homeZoom;
 }
+
+defineExpose({
+  props,
+  zoom,
+  pan,
+  dragging,
+  showOverlay,
+});
 </script>
 
 <style module>
