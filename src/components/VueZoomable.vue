@@ -68,7 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
   zoomSpeed: 1,
   zoomStep: 0.4,
   panStep: 15,
-  panPerStep: 0.2,
+  panPerStep: 2,
 
   panEnabled: true,
   zoomEnabled: true,
@@ -182,11 +182,15 @@ function positionToPan({ x = 0, y = 0 }) {
 function zoomInto({
   change = 1,
   position = { x: 0, y: 0 },
-  alpha = undefined
+  alpha = undefined,
 }: { change?: number, position?: { x: number, y: number }, alpha?: number }) {
+  // calculating new zoom
+  zoom.value = zoom.value + (change * props.zoomStep);
+
   // calculating new pan
   const eventPosition = positionToPan(position);
 
+  console.log('zoom', zoom.value)
   console.log('event position', eventPosition);
   console.log('pan', {
     x: pan.value.x,
@@ -214,9 +218,6 @@ function zoomInto({
     x: pan.value.x + alpha * directionVector.x,
     y: pan.value.y + alpha * directionVector.y,
   };
-
-  // calculating new zoom
-  zoom.value = zoom.value + (change * props.zoomStep);
 }
 
 // support touch
@@ -290,14 +291,33 @@ onMounted(() => {
     if (evCache.length == 2) {
       if (!props.zoomEnabled) return;
 
+      const a = {
+        x: evCache[0].clientX,
+        y: evCache[0].clientY,
+      };
+      const b = {
+        x: evCache[1].clientX,
+        y: evCache[1].clientY,
+      };
+      const zoomPosition = {
+        x: (a.x + b.x) * 0.5,
+        y: (a.y + b.y) * 0.5,
+      };
+
       // Calculate the distance between the two pointers
       var curDiff = Math.sqrt(
-        Math.pow(evCache[1].clientX - evCache[0].clientX, 2) +
-        Math.pow(evCache[1].clientY - evCache[0].clientY, 2),
+        Math.pow(b.x - a.x, 2) +
+        Math.pow(b.y - a.y, 2),
       );
 
       if (prevDiff > 0) {
-        zoom.value += (curDiff - prevDiff) * 0.01 * props.zoomSpeed;
+        console.log("eeeeeeeeeeee")
+        zoomInto({
+          change: (curDiff - prevDiff) * 0.025,
+          position: zoomPosition,
+          alpha: 1,
+        });
+        // zoom.value += (curDiff - prevDiff) * 0.025 * props.zoomStep;
       }
 
       // Cache the distance for the next move event
@@ -391,6 +411,8 @@ function buttonZoom(direction: number) {
 }
 
 function buttonHome() {
+  console.clear();
+
   pan.value = {
     x: props.homeX,
     y: props.homeY,
