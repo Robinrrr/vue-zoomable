@@ -204,9 +204,7 @@ function zoomPan({
 
   eventOrigin?: { x: number, y: number }
   panDirection?: PanDirectionMode | { x: number, y: number },
-
   alpha?: number,
-  centerPosition?: boolean
 }) {
   function log(name: string, value: any) {
     if (!props.debug) return;
@@ -232,7 +230,7 @@ function zoomPan({
 
   const directionVector = computed(() => {
     if (panDirection === PanDirectionMode.CenterMiddle) {
-      // the vector base will be centered
+      // the event origin will be centered
       return {
         x: eventOrigin.x - (pan.value.x + 0.5 * transformDimensions.value.x),
         y: eventOrigin.y - (pan.value.y + 0.5 * transformDimensions.value.y)
@@ -240,7 +238,7 @@ function zoomPan({
     }
 
     if (panDirection === PanDirectionMode.CenterEventOrigin) {
-      // the transform object will be centered on the vector base
+      // the transform object will be centered on the event origin
       return {
         x: 0.5 * containerDimensions.value.x - eventOrigin.x,
         y: 0.5 * containerDimensions.value.y - eventOrigin.y,
@@ -472,7 +470,7 @@ function buttonPan(direction: { x: number, y: number }) {
 }
 
 function buttonZoom(direction: number) {
-  zoomPan({ change: direction, alpha: 1 });
+  zoomPan({ change: direction, alpha: 1, panDirection: PanDirectionMode.CenterEventOrigin });
 }
 
 function buttonHome() {
