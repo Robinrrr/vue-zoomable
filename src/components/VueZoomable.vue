@@ -308,8 +308,10 @@ onMounted(() => {
     else if (evCache.length == 1) {
       if (!props.panEnabled) return;
 
-      pan.value.x = pan.value.x + (ev.clientX - previousEvent.clientX);
-      pan.value.y = pan.value.y + (ev.clientY - previousEvent.clientY);
+      pan.value = {
+        x: pan.value.x + (ev.clientX - previousEvent.clientX),
+        y: pan.value.y + (ev.clientY - previousEvent.clientY),
+      };
     }
   }
 
