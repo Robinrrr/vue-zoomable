@@ -193,6 +193,10 @@ enum PanDirectionMode {
   CenterEventOrigin,
 }
 
+enum AlphaMode {
+  RelativeToZoom,
+}
+
 function zoomPan({
   change = 1,
 
@@ -210,15 +214,26 @@ function zoomPan({
     if (!props.debug) return;
 
     if (name === "end") {
-      console.log("zoom into: END OF FUNCTION CALL =============");
+      console.log("zoom/pan: END OF FUNCTION CALL =============");
       return;
     }
-    console.log("zoom into: " + name, value)
+    console.log("zoom/pan: " + name, value)
   }
 
   // calculating new zoom
-  log('zoom', zoom.value)
-  zoom.value = zoom.value + (change * props.zoomStep);
+  log('zoom', zoom.value);
+  const prevZoom = zoom.value;
+  const newZoom = zoom.value + (change * props.zoomStep);
+
+  if (newZoom > props.maxZoom && props.maxZoom !== undefined) {
+    zoom.value = props.maxZoom;
+  } else if (newZoom < props.minZoom && props.minZoom !== undefined) {
+    zoom.value = props.minZoom;
+  } else {
+    zoom.value = newZoom;
+  }
+
+  log('amount of zoom', Math.abs(prevZoom - zoom.value))
 
   if (eventOrigin === undefined) {
     // if this isn't given I assume the center of the transform object
@@ -247,6 +262,12 @@ function zoomPan({
 
     return panDirection;
   });
+
+  if (alpha === AlphaMode.RelativeToZoom) {
+    alpha = Math.abs(prevZoom - zoom.value);
+  }
+  if (alpha < 0) alpha = 0;
+  if (alpha > 1) alpha = 1;
 
   log('eventOrigin', eventOrigin);
   log('direction vector', directionVector.value);
@@ -432,7 +453,7 @@ onMounted(() => {
         x: event.clientX,
         y: event.clientY,
       }),
-      alpha: 0.3,
+      alpha: AlphaMode.RelativeToZoom,
     });
   }
 
