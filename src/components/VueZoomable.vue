@@ -40,8 +40,7 @@ interface Props {
   panStep?: number;
   panPerStep?: number;
 
-  homeX?: number;
-  homeY?: number;
+  homePan?: { x: number, y: number };
   homeZoom?: number;
 
   keepOverlayOpen?: number;
@@ -74,8 +73,7 @@ const props = withDefaults(defineProps<Props>(), {
   panEnabled: true,
   zoomEnabled: true,
 
-  homeX: 0,
-  homeY: 0,
+  homePan: undefined,
   homeZoom: 1,
 
   keepOverlayOpen: 1000,
@@ -89,7 +87,6 @@ const props = withDefaults(defineProps<Props>(), {
   keepDraggingDelay: 10,
   debug: false,
 });
-
 
 let container = ref<HTMLElement>();
 let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector) as HTMLElement)
@@ -193,22 +190,29 @@ function positionToPan({ x = 0, y = 0 }) {
 
 function zoomInto({
   change = 1,
-  position = { x: 0, y: 0 },
+  position = undefined,
   alpha = undefined,
   centerPosition = false,
 }: { change?: number, position?: { x: number, y: number }, alpha?: number, centerPosition?: boolean }) {
   function log(name: string, value: any) {
     if (!props.debug) return;
 
+    if (name === "end") {
+      console.log("zoom into: END OF FUNCTION CALL =============");
+      return;
+    }
     console.log("zoom into: " + name, value)
   }
+
+  let eventPosition = position === undefined ? {
+    x: 0.5 * transformDimensions.value.x + pan.value.x,
+    y: 0.5 * transformDimensions.value.y + pan.value.y,
+  } : positionToPan(position);
 
   // calculating new zoom
   zoom.value = zoom.value + (change * props.zoomStep);
 
   // calculating new pan
-  const eventPosition = positionToPan(position);
-
   log('zoom', zoom.value)
   log('event position', eventPosition);
   log('pan', {
@@ -247,6 +251,8 @@ function zoomInto({
     x: pan.value.x + alpha * directionVector.x,
     y: pan.value.y + alpha * directionVector.y,
   };
+
+  log("end", undefined);
 }
 
 // support touch
@@ -431,22 +437,23 @@ onMounted(() => {
 
 function buttonPan(direction: { x: number, y: number }) {
   pan.value = {
-    x: pan.value.x + direction.x,
-    y: pan.value.y + direction.y,
+    x: pan.value.x + (direction.x * props.panStep),
+    y: pan.value.y + (direction.y * props.panStep),
   }
 }
 
 function buttonZoom(direction: number) {
-  zoom.value += props.zoomStep * direction;
+  zoomInto({ change: direction, alpha: 1 });
 }
 
 function buttonHome() {
-  console.clear();
+  if (props.debug) console.clear();
 
-  pan.value = {
-    x: props.homeX,
-    y: props.homeY,
-  };
+  pan.value = props.homePan === undefined ? {
+    x: 0.5 * containerDimensions.value.x - 0.5 * transformDimensions.value.x,
+    y: 0.5 * containerDimensions.value.y - 0.5 * transformDimensions.value.y,
+  } : props.homePan;
+
   zoom.value = props.homeZoom;
 }
 

@@ -5,6 +5,17 @@
         <label :for="propName">{{ propName }}</label>
         <input v-model="form[propName]" :id="propName" :type="getType(propValue)" />
       </template>
+
+      <div v-else-if="typeof propValue === 'object'">
+        <span>{{ propName }}</span>
+
+        <template v-for="(innerValue, innerName) in propValue" :key="innerName">
+          <div v-if="getType(innerValue)">
+            <label :for="innerName">{{ innerName }}</label>
+            <input v-model="form[propName][innerName]" :id="innerName" :type="getType(innerValue)" />
+          </div>
+        </template>
+      </div>
     </div>
 
     <hr>
