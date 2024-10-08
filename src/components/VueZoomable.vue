@@ -170,7 +170,7 @@ const containerDimensions = computed(() => {
   };
 });
 
-function positionToPan({ x = 0, y = 0 }) {
+function eventPositionToVector({ x = 0, y = 0 }) {
   /*
   Transforms coordinates relative to the viewport to be relative to the container instead
   */
@@ -188,12 +188,26 @@ function positionToPan({ x = 0, y = 0 }) {
   };
 }
 
-function zoomInto({
+enum PanDirectionMode {
+  CenterMiddle,
+  CenterEventOrigin,
+}
+
+function zoomPan({
   change = 1,
-  position = undefined,
-  alpha = undefined,
-  centerPosition = false,
-}: { change?: number, position?: { x: number, y: number }, alpha?: number, centerPosition?: boolean }) {
+
+  eventOrigin = undefined,
+  panDirection = PanDirectionMode.CenterMiddle,
+  alpha = 1,
+}: {
+  change?: number,
+
+  eventOrigin?: { x: number, y: number }
+  panDirection?: PanDirectionMode | { x: number, y: number },
+
+  alpha?: number,
+  centerPosition?: boolean
+}) {
   function log(name: string, value: any) {
     if (!props.debug) return;
 
@@ -204,52 +218,49 @@ function zoomInto({
     console.log("zoom into: " + name, value)
   }
 
-  let eventPosition = position === undefined ? {
-    x: 0.5 * transformDimensions.value.x + pan.value.x,
-    y: 0.5 * transformDimensions.value.y + pan.value.y,
-  } : positionToPan(position);
-
   // calculating new zoom
+  log('zoom', zoom.value)
   zoom.value = zoom.value + (change * props.zoomStep);
 
-  // calculating new pan
-  log('zoom', zoom.value)
-  log('event position', eventPosition);
-  log('pan', {
-    x: pan.value.x,
-    y: pan.value.y,
-  });
-  log('dimensions', transformDimensions.value)
-
-  // calculate how close I want to go towards the goal
-  // number between 0 and 1
-  if (alpha === undefined) {
-    alpha = props.panPerStep * change;
-    if (alpha > 1) alpha = 1;
+  if (eventOrigin === undefined) {
+    // if this isn't given I assume the center of the transform object
+    eventOrigin = {
+      x: pan.value.x + 0.5 * transformDimensions.value.x,
+      y: pan.value.y + 0.5 * transformDimensions.value.y,
+    };
   }
 
+  const directionVector = computed(() => {
+    if (panDirection === PanDirectionMode.CenterMiddle) {
+      // the vector base will be centered
+      return {
+        x: eventOrigin.x - (pan.value.x + 0.5 * transformDimensions.value.x),
+        y: eventOrigin.y - (pan.value.y + 0.5 * transformDimensions.value.y)
+      };
+    }
+
+    if (panDirection === PanDirectionMode.CenterEventOrigin) {
+      // the transform object will be centered on the vector base
+      return {
+        x: 0.5 * containerDimensions.value.x - eventOrigin.x,
+        y: 0.5 * containerDimensions.value.y - eventOrigin.y,
+      };
+    }
+
+    return panDirection;
+  });
+
+  log('eventOrigin', eventOrigin);
+  log('direction vector', directionVector.value);
   log("alpha", alpha);
 
-  let directionVector: { x: number, y: number };
-  if (centerPosition) {
-    // the place of the transform object of where the mouse cursor was is now in the center
-    directionVector = {
-      x: 0.5 * containerDimensions.value.x - eventPosition.x,
-      y: 0.5 * containerDimensions.value.y - eventPosition.y,
-    };
-  } else {
-    // the center of the transform object will be there, where the mouse cursor was
-    directionVector = {
-      x: eventPosition.x - (pan.value.x + 0.5 * transformDimensions.value.x),
-      y: eventPosition.y - (pan.value.y + 0.5 * transformDimensions.value.y)
-    };
-  }
+  log('containerDimensions', containerDimensions.value);
+  log('transformDimensions', transformDimensions.value);
 
-  log('direction', directionVector)
 
   pan.value = {
-    x: pan.value.x + alpha * directionVector.x,
-    y: pan.value.y + alpha * directionVector.y,
+    x: pan.value.x + alpha * directionVector.value.x,
+    y: pan.value.y + alpha * directionVector.value.y,
   };
 
   log("end", undefined);
@@ -260,6 +271,7 @@ onMounted(() => {
   let movingEvId = new Set();
   let evCache = new Array();
   let prevDiff = -1;
+  const pointerToPosition: Record<number, any> = {};
 
   function log(prefix: String, ev: PointerEvent) {
     if (!props.debug) return;
@@ -277,6 +289,8 @@ onMounted(() => {
   }
 
   function remove_event(ev: PointerEvent) {
+    delete pointerToPosition[ev.pointerId];
+
     for (var i = 0; i < evCache.length; i++) {
       if (evCache[i].pointerId == ev.pointerId) {
         evCache.splice(i, 1);
@@ -287,6 +301,10 @@ onMounted(() => {
 
   function pointerdown_handler(ev: PointerEvent) {
     evCache.push(ev);
+    pointerToPosition[ev.pointerId] = {
+      x: ev.clientX,
+      y: ev.clientY,
+    };
     log('pointerDown', ev);
   }
 
@@ -305,19 +323,24 @@ onMounted(() => {
   function pointermove_handler(ev: PointerEvent) {
     log('pointerMove', ev);
 
-    let previousEvent = undefined;
+    let previousPosition = undefined;
     for (var i = 0; i < evCache.length; i++) {
       if (ev.pointerId == evCache[i].pointerId) {
-        previousEvent = evCache[i];
+        previousPosition = {
+          x: evCache[i].clientX,
+          y: evCache[i].clientY,
+        };
         evCache[i] = ev;
         break;
       }
     }
 
-    if (previousEvent == undefined) {
+    if (previousPosition == undefined) {
       log('pointerOutsideOfContainer', ev);
       return
     }
+
+    previousPosition as { x: number, y: number }
 
     movingEvId.add(ev.pointerId);
     dragging.value = true;
@@ -326,17 +349,24 @@ onMounted(() => {
     if (evCache.length == 2) {
       if (!props.zoomEnabled) return;
 
-      const a = {
-        x: evCache[0].clientX,
-        y: evCache[0].clientY,
+      const a = evCache[0];
+      const b = evCache[1];
+
+      const prevA = pointerToPosition[a.pointerId];
+      const prevB = pointerToPosition[b.pointerId];
+
+      const changePosition = {
+        x: (a.clientX + b.clientX) * 0.5 - (prevA.x + prevB.x) * 0.5,
+        y: (a.clientY + b.clientY) * 0.5 - (prevA.y + prevB.y) * 0.5,
       };
-      const b = {
-        x: evCache[1].clientX,
-        y: evCache[1].clientY,
+
+      pointerToPosition[a.pointerId] = {
+        x: a.clientX,
+        y: a.clientY,
       };
-      const zoomPosition = {
-        x: (a.x + b.x) * 0.5,
-        y: (a.y + b.y) * 0.5,
+      pointerToPosition[b.pointerId] = {
+        x: b.clientX,
+        y: b.clientY,
       };
 
       // Calculate the distance between the two pointers
@@ -347,10 +377,9 @@ onMounted(() => {
 
       if (prevDiff > 0) {
         console.log("eeeeeeeeeeee")
-        zoomInto({
+        zoomPan({
           change: (curDiff - prevDiff) * 0.025,
-          position: zoomPosition,
-          alpha: 1,
+          panDirection: changePosition,
         });
         // zoom.value += (curDiff - prevDiff) * 0.025 * props.zoomStep;
       }
@@ -364,8 +393,8 @@ onMounted(() => {
       if (!props.panEnabled) return;
 
       pan.value = {
-        x: pan.value.x + (ev.clientX - previousEvent.clientX),
-        y: pan.value.y + (ev.clientY - previousEvent.clientY),
+        x: pan.value.x + (ev.clientX - previousPosition.x),
+        y: pan.value.y + (ev.clientY - previousPosition.y),
       };
     }
   }
@@ -422,14 +451,14 @@ onMounted(() => {
 onMounted(() => {
   if (props.enableDoubleClick) {
     container.value?.addEventListener('dblclick', event => {
-      zoomInto({
+      zoomPan({
         change: 0,
-        position: {
+
+        eventOrigin: eventPositionToVector({
           x: event.clientX,
-          y: event.clientY
-        },
-        alpha: 1,
-        centerPosition: true,
+          y: event.clientY,
+        }),
+        panDirection: PanDirectionMode.CenterEventOrigin,
       });
     });
   }
@@ -443,7 +472,7 @@ function buttonPan(direction: { x: number, y: number }) {
 }
 
 function buttonZoom(direction: number) {
-  zoomInto({ change: direction, alpha: 1 });
+  zoomPan({ change: direction, alpha: 1 });
 }
 
 function buttonHome() {
