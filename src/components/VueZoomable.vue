@@ -425,7 +425,15 @@ onMounted(() => {
       return;
     }
 
-    setZoom({ relative: props.zoomStep * event.deltaY / Math.abs(event.deltaY) });
+    zoomPan({
+      change: event.deltaY / Math.abs(event.deltaY),
+      panDirection: PanDirectionMode.CenterMiddle,
+      eventOrigin: eventPositionToVector({
+        x: event.clientX,
+        y: event.clientY,
+      }),
+      alpha: 0.3,
+    });
   }
 
   function disableZoom(event: WheelEvent) {
