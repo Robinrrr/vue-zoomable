@@ -41,7 +41,7 @@
     </template>
   </form>
 
-  <VueZoomable ref="childRef" v-bind="form" style="width: 100%; aspect-ratio: 1; border: 1px solid black">
+  <VueZoomable ref="childRef" v-bind="form" style="width: 400px; aspect-ratio: 1; border: 1px solid black">
     <div id="zoomable-content">
       <div>
         <div></div>

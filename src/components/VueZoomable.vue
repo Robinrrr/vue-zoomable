@@ -15,7 +15,6 @@
 import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
-import { debug } from 'console';
 
 const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', {
@@ -73,7 +72,10 @@ const props = withDefaults(defineProps<Props>(), {
   panEnabled: true,
   zoomEnabled: true,
 
-  homePan: undefined,
+  homePan: {
+    x: 0,
+    y: 0,
+  },
   homeZoom: 1,
 
   keepOverlayOpen: 1000,
@@ -85,7 +87,7 @@ const props = withDefaults(defineProps<Props>(), {
 
   allowWheelOnKey: 'Control',
   keepDraggingDelay: 10,
-  debug: false,
+  debug: true,
 });
 
 let container = ref<HTMLElement>();
@@ -118,14 +120,10 @@ function setTransform() {
 }
 
 
-function setZoom({ absolute = undefined, relative = 0 }: { absolute?: number, relative?: number } = {}) {
-  absolute = (absolute === undefined ? zoom.value : absolute) + relative;
-
-  if (absolute < props.minZoom) absolute = props.minZoom;
-  if (absolute > props.maxZoom) absolute = props.maxZoom;
-
-  showOverlay.value = false;
-  zoom.value = absolute;
+function checkZoomBounds(zoomValue: number) {
+  if (props.minZoom > zoomValue) return props.minZoom;
+  if (props.maxZoom < zoomValue) return props.maxZoom;
+  return zoomValue;
 }
 
 
@@ -142,13 +140,18 @@ function changeShowOverlay() {
   }
 }
 
-watch(zoom, () => { setZoom() });
+watch(zoom, () => {
+  zoom.value = checkZoomBounds(zoom.value);
+  showOverlay.value = false;
+});
 watch(pan, () => {
   showOverlay.value = false;
 }, { deep: true });
 watch(transform, () => { setTransform(); });
 watch(showOverlay, changeShowOverlay);
 onMounted(() => {
+  setTransform();
+  buttonHome();
   setTransform();
 });
 
@@ -202,12 +205,14 @@ function zoomPan({
 
   eventOrigin = undefined,
   panDirection = PanDirectionMode.CenterMiddle,
+  panAdditionalDirection = { x: 0, y: 0 },
   alpha = 1,
 }: {
   change?: number,
 
   eventOrigin?: { x: number, y: number }
   panDirection?: PanDirectionMode | { x: number, y: number },
+  panAdditionalDirection?: { x: number, y: number },
   alpha?: number,
 }) {
   function log(name: string, value: any) {
@@ -233,13 +238,15 @@ function zoomPan({
     zoom.value = newZoom;
   }
 
-  log('amount of zoom', Math.abs(prevZoom - zoom.value))
+  log('amount of zoom', Math.abs(prevZoom - zoom.value));
+
+  let currentPan = pan.value;
 
   if (eventOrigin === undefined) {
     // if this isn't given I assume the center of the transform object
     eventOrigin = {
-      x: pan.value.x + 0.5 * transformDimensions.value.x,
-      y: pan.value.y + 0.5 * transformDimensions.value.y,
+      x: currentPan.x + 0.5 * transformDimensions.value.x,
+      y: currentPan.y + 0.5 * transformDimensions.value.y,
     };
   }
 
@@ -247,8 +254,8 @@ function zoomPan({
     if (panDirection === PanDirectionMode.CenterMiddle) {
       // the event origin will be centered
       return {
-        x: eventOrigin.x - (pan.value.x + 0.5 * transformDimensions.value.x),
-        y: eventOrigin.y - (pan.value.y + 0.5 * transformDimensions.value.y)
+        x: eventOrigin.x - (currentPan.x + 0.5 * transformDimensions.value.x),
+        y: eventOrigin.y - (currentPan.y + 0.5 * transformDimensions.value.y)
       };
     }
 
@@ -277,10 +284,12 @@ function zoomPan({
   log('transformDimensions', transformDimensions.value);
 
 
-  pan.value = {
-    x: pan.value.x + alpha * directionVector.value.x,
-    y: pan.value.y + alpha * directionVector.value.y,
+  currentPan = {
+    x: currentPan.x + alpha * directionVector.value.x + panAdditionalDirection.x,
+    y: currentPan.y + alpha * directionVector.value.y + panAdditionalDirection.y,
   };
+
+  pan.value = currentPan;
 
   log("end", undefined);
 }
@@ -290,7 +299,7 @@ onMounted(() => {
   let movingEvId = new Set();
   let evCache = new Array();
   let prevDiff = -1;
-  const pointerToPosition: Record<number, any> = {};
+  const pointerToPrevPointer: Record<number, any> = {};
 
   function log(prefix: String, ev: PointerEvent) {
     if (!props.debug) return;
@@ -304,11 +313,11 @@ onMounted(() => {
       ' ; isPrimary = ' +
       ev.isPrimary;
 
-    console.log(s);
+    console.log(s, ev);
   }
 
   function remove_event(ev: PointerEvent) {
-    delete pointerToPosition[ev.pointerId];
+    delete pointerToPrevPointer[ev.pointerId];
 
     for (var i = 0; i < evCache.length; i++) {
       if (evCache[i].pointerId == ev.pointerId) {
@@ -320,7 +329,7 @@ onMounted(() => {
 
   function pointerdown_handler(ev: PointerEvent) {
     evCache.push(ev);
-    pointerToPosition[ev.pointerId] = {
+    pointerToPrevPointer[ev.pointerId] = {
       x: ev.clientX,
       y: ev.clientY,
     };
@@ -340,26 +349,23 @@ onMounted(() => {
   }
 
   function pointermove_handler(ev: PointerEvent) {
-    log('pointerMove', ev);
-
-    let previousPosition = undefined;
+    let previousEvent = undefined;
     for (var i = 0; i < evCache.length; i++) {
       if (ev.pointerId == evCache[i].pointerId) {
-        previousPosition = {
-          x: evCache[i].clientX,
-          y: evCache[i].clientY,
-        };
+        previousEvent = evCache[i];
         evCache[i] = ev;
         break;
       }
     }
 
-    if (previousPosition == undefined) {
-      log('pointerOutsideOfContainer', ev);
-      return
+    if (previousEvent == undefined) {
+      return;
     }
 
-    previousPosition as { x: number, y: number }
+    log('pointerMove', ev);
+
+
+    previousEvent as PointerEvent
 
     movingEvId.add(ev.pointerId);
     dragging.value = true;
@@ -368,39 +374,41 @@ onMounted(() => {
     if (evCache.length == 2) {
       if (!props.zoomEnabled) return;
 
-      const a = evCache[0];
-      const b = evCache[1];
+      const a1 = evCache[0];
+      const b1 = evCache[1];
 
-      const prevA = pointerToPosition[a.pointerId];
-      const prevB = pointerToPosition[b.pointerId];
+      const a2 = pointerToPrevPointer[a1.pointerId];
+      const b2 = pointerToPrevPointer[b1.pointerId];
 
-      const changePosition = {
-        x: (a.clientX + b.clientX) * 0.5 - (prevA.x + prevB.x) * 0.5,
-        y: (a.clientY + b.clientY) * 0.5 - (prevA.y + prevB.y) * 0.5,
+      const deltaPanFromPan = {
+        x: ((a2.clientX - a1.clientX) + (b2.clientX - b1.clientX)) / 2,
+        y: ((a2.clientY - a1.clientY) + (b2.clientY - b1.clientY)) / 2,
       };
 
-      pointerToPosition[a.pointerId] = {
-        x: a.clientX,
-        y: a.clientY,
-      };
-      pointerToPosition[b.pointerId] = {
-        x: b.clientX,
-        y: b.clientY,
-      };
+      pointerToPrevPointer[a1.pointerId] = a1;
+      pointerToPrevPointer[b1.pointerId] = b1;
 
       // Calculate the distance between the two pointers
       var curDiff = Math.sqrt(
-        Math.pow(b.x - a.x, 2) +
-        Math.pow(b.y - a.y, 2),
+        Math.pow(b1.x - a1.x, 2) +
+        Math.pow(b1.y - a1.y, 2),
       );
 
       if (prevDiff > 0) {
-        console.log("eeeeeeeeeeee")
-        zoomPan({
-          change: (curDiff - prevDiff) * 0.025,
-          panDirection: changePosition,
-        });
-        // zoom.value += (curDiff - prevDiff) * 0.025 * props.zoomStep;
+        const deltaZoom = props.zoomStep * (curDiff - prevDiff) * 0.025;
+        const transformDimensionsBefore = { ...transformDimensions.value };
+
+        zoom.value = checkZoomBounds(zoom.value + deltaZoom);
+
+        const deltaPanFromZoom = {
+          x: (transformDimensionsBefore.x - transformDimensions.value.x) / 2,
+          y: (transformDimensionsBefore.x - transformDimensions.value.x) / 2,
+        };
+
+        pan.value = {
+          x: pan.value.x + deltaPanFromZoom.x - deltaPanFromPan.x,
+          y: pan.value.y + deltaPanFromZoom.y - deltaPanFromPan.y,
+        };
       }
 
       // Cache the distance for the next move event
@@ -409,11 +417,14 @@ onMounted(() => {
 
     // pan (only one finger is touching)
     else if (evCache.length == 1) {
-      if (!props.panEnabled) return;
+      const deltaPan = {
+        x: ev.clientX - previousEvent.clientX,
+        y: ev.clientY - previousEvent.clientY
+      }
 
       pan.value = {
-        x: pan.value.x + (ev.clientX - previousPosition.x),
-        y: pan.value.y + (ev.clientY - previousPosition.y),
+        x: pan.value.x + deltaPan.x,
+        y: pan.value.y + deltaPan.y,
       };
     }
   }
@@ -479,7 +490,7 @@ onMounted(() => {
   if (props.enableDoubleClick) {
     container.value?.addEventListener('dblclick', event => {
       zoomPan({
-        change: 0,
+        change: 1,
 
         eventOrigin: eventPositionToVector({
           x: event.clientX,
@@ -503,12 +514,12 @@ function buttonZoom(direction: number) {
 }
 
 function buttonHome() {
-  if (props.debug) console.clear();
+  // if (props.debug) console.clear();
 
   pan.value = props.homePan === undefined ? {
     x: 0.5 * containerDimensions.value.x - 0.5 * transformDimensions.value.x,
     y: 0.5 * containerDimensions.value.y - 0.5 * transformDimensions.value.y,
-  } : props.homePan;
+  } : { ...props.homePan };
 
   zoom.value = props.homeZoom;
 }
