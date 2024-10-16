@@ -524,12 +524,29 @@ function buttonHome() {
   zoom.value = props.homeZoom;
 }
 
+const panZoomHome = buttonHome;
+const panUp = () => buttonPan({ x: 0, y: -1 });
+const panDown = () => buttonPan({ x: 0, y: 1 });
+const panLeft = () => buttonPan({ x: -1, y: 0 });
+const panRight = () => buttonPan({ x: 1, y: 0 });
+
+const zoomIn = () => buttonZoom(1);
+const zoomOut = () => buttonZoom(-1);
+
 defineExpose({
   props,
   zoom,
   pan,
   dragging,
   showOverlay,
+
+  panZoomHome,
+  panUp,
+  panDown,
+  panLeft,
+  panRight,
+  zoomIn,
+  zoomOut,
 });
 </script>
 
