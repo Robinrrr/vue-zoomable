@@ -9,7 +9,7 @@
       <div v-else-if="typeof propValue === 'object'">
         <span>{{ propName }}</span>
 
-        <template v-for="(innerValue, innerName) in propValue" :key="innerName">
+        <template v-for="(innerValue, innerName) in propValue as object" :key="innerName">
           <div v-if="getType(innerValue)">
             <label :for="innerName">{{ innerName }}</label>
             <input v-model="form[propName][innerName]" :id="innerName" :type="getType(innerValue)" />
@@ -30,7 +30,7 @@
         <div v-else-if="typeof propValue === 'object' && propName !== 'props'">
           <span>{{ propName }}</span>
 
-          <template v-for="(innerValue, innerName) in propValue" :key="innerName">
+          <template v-for="(innerValue, innerName) in propValue as object" :key="innerName">
             <div v-if="getType(innerValue)">
               <label :for="innerName">{{ innerName }}</label>
               <input v-model="childRef[propName][innerName]" :id="innerName" :type="getType(innerValue)" />

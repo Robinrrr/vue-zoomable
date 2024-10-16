@@ -39,7 +39,8 @@ interface Props {
   panStep?: number;
   panPerStep?: number;
 
-  homePan?: { x: number, y: number };
+  homePanX?: number;
+  homePanY?: number;
   homeZoom?: number;
 
   keepOverlayOpen?: number;
@@ -72,10 +73,8 @@ const props = withDefaults(defineProps<Props>(), {
   panEnabled: true,
   zoomEnabled: true,
 
-  homePan: {
-    x: 0,
-    y: 0,
-  },
+  homePanX: 0,
+  homePanY: 0,
   homeZoom: 1,
 
   keepOverlayOpen: 1000,
@@ -516,10 +515,10 @@ function buttonZoom(direction: number) {
 function buttonHome() {
   // if (props.debug) console.clear();
 
-  pan.value = props.homePan === undefined ? {
-    x: 0.5 * containerDimensions.value.x - 0.5 * transformDimensions.value.x,
-    y: 0.5 * containerDimensions.value.y - 0.5 * transformDimensions.value.y,
-  } : { ...props.homePan };
+  pan.value = {
+    x: props.homePanX,
+    y: props.homePanY,
+  };
 
   zoom.value = props.homeZoom;
 }
