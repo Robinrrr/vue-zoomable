@@ -3,7 +3,6 @@ import { Ref, ModelRef } from "vue";
 
 export function useTouch(
     props: any,
-    emit: any,
     pan: Ref<{ x: number, y: number }>,
     zoom: Ref<number>,
     setOverlay: Function,

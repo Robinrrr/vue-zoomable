@@ -8,12 +8,10 @@ interface PanDirection {
 
 export function useButtons(
     props: any,
-    emit: any,
     pan: Ref<{ x: number, y: number }>,
     zoom: Ref<number>,
     setOverlay: Function) {
 
-    const { changeZoom, changePan, goHome } = useMove(props, emit, pan, zoom, setOverlay);
 
     const eventType: string = "controll_button";
 
@@ -27,26 +25,33 @@ export function useButtons(
     }
 
     function onPan(direction: PanDirection, usingHold: boolean = false) {
-        changePan(direction.x * props.buttonPanStep, direction.y * props.buttonPanStep, eventType);
+        pan.value = {
+            x: pan.value.x + direction.x * props.buttonPanStep,
+            y: pan.value.y + direction.y * props.buttonPanStep
+        }
 
         isHolding = usingHold;
         if (isHolding) {
             setTimeout(() => {
                 holding(() => {
-                    changePan(direction.x * props.buttonPanStep * 0.5, direction.y * props.buttonPanStep * 0.5, eventType);
+                    pan.value = {
+                        x: pan.value.x + direction.x * props.buttonPanStep * 0.5,
+                        y: pan.value.y + direction.y * props.buttonPanStep * 0.5
+                    }
                 }, 50)
             }, 300);
         }
     }
 
     function onZoom(direction: number, usingHold: boolean = false) {
-        changeZoom(direction * props.buttonZoomStep, eventType);
+        zoom.value += direction * props.buttonZoomStep
 
         isHolding = usingHold;
         if (isHolding) {
             setTimeout(() => {
                 holding(() => {
-                    changeZoom(direction * props.buttonZoomStep * 0.5, eventType);
+                    zoom.value += direction * props.buttonZoomStep * 0.5;
+
                 }, 50)
             }, 300);
         }
@@ -54,7 +59,11 @@ export function useButtons(
 
     function onHome() {
         // what a totally necesarry function *rolls eyes*
-        goHome(eventType);
+        zoom.value = props.initialZoom;
+        pan.value = {
+            x: props.initialPanX,
+            y: props.initialPanY,
+        }
     }
 
     return {

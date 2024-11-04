@@ -4,15 +4,10 @@ import { useMove } from "./move";
 
 export function useMouse(
     props: any,
-    emit: any,
     pan: Ref<{ x: number, y: number }>,
     zoom: Ref<number>,
     setOverlay: Function
 ) {
-
-    const { changeZoom, changePan } = useMove(props, emit, pan, zoom, setOverlay);
-    const eventType = "mouse";
-
     let dragLoc = {
         x: 0,
         y: 0,
@@ -36,7 +31,11 @@ export function useMouse(
             y: ev.clientY - dragLoc.y,
         }
 
-        changePan(delta.x, delta.y, eventType);
+        pan.value = {
+            x: pan.value.x + delta.x,
+            y: pan.value.y + delta.y,
+        }
+
 
         // Idfk what this does but it has to be here, don't ask me
         dragLoc = {
@@ -48,7 +47,7 @@ export function useMouse(
     function onDblClick() {
         if (!props.dblClickEnabled || !props.zoomEnabled) return;
 
-        changeZoom(props.dblClickZoomStep, "dblClick");
+        zoom.value += props.dblClickZoomStep;
     }
 
     return {

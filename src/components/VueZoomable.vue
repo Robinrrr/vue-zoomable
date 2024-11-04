@@ -20,7 +20,6 @@ const dragging = defineModel('dragging', { default: false });
 
 const hideOverlay: Ref<boolean> = ref(true);
 
-let emitNative = defineEmits(["panned", "zoom", "update:zoom", "update:pan"]);
 let props = defineProps({
   zoom: {
     type: Number,
@@ -53,7 +52,7 @@ let props = defineProps({
   },
   initialZoom: {
     type: Number,
-    default: 0.5,
+    default: 1,
   },
   dblClickZoomStep: {
     type: Number,
@@ -105,7 +104,7 @@ let props = defineProps({
   },
   debug: {
     type: Boolean,
-    default: true,
+    default: false,
   },
   draggingDelay: {
     type: Number,
@@ -116,44 +115,57 @@ let props = defineProps({
 let container = ref();
 let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector))
 
-let zoom = ref(props.minZoom);
-if (props.initialZoom >= props.minZoom && props.initialZoom <= props.maxZoom) {
-  zoom.value = props.initialZoom;
-}
-if (props.zoom) zoom.value = props.zoom;
+const zoom = defineModel('zoom', { default: 1 });
+const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 
-let pan = ref({
-  x: props.pan != null ? props.pan.x : props.initialPanX,
-  y: props.pan != null ? props.pan.y : props.initialPanY,
+function centerElement(element: HTMLElement) {
+  const elementInfo = element.getBoundingClientRect();
+
+  function getCenter(info: DOMRect) {
+    return {
+      x: info.x + .5 * info.width,
+      y: info.y + .5 * info.height,
+    };
+  }
+
+  centerPoint(getCenter(element.getBoundingClientRect()));
+}
+
+function centerPoint(pointToCenter: { x: number, y: number }) {
+  const containerInfo = document.getElementsByClassName('container')[0].getBoundingClientRect();
+
+
+  pan.value = {
+    x: - (pointToCenter.x - containerInfo.x - pan.value.x) + .5 * containerInfo.width,
+    y: - (pointToCenter.y - containerInfo.y - pan.value.y) + .5 * containerInfo.height,
+  }
+}
+
+function printInfo() {
+  console.log();
+
+  const itemInfo = document.getElementsByClassName('center')[0].getBoundingClientRect();
+  console.log('item', itemInfo);
+
+  const containerInfo = document.getElementsByClassName('container')[0].getBoundingClientRect();
+  console.log('container', containerInfo);
+
+  const delta = {
+    x: itemInfo.x - containerInfo.x,
+    y: itemInfo.y - containerInfo.y,
+  }
+
+  console.log('delta', delta)
+}
+
+watch(zoom, () => {
+  hideOverlay.value = true;
+  printInfo();
 });
-
-watch(
-  () => props.zoom,
-  () => {
-    if (!isNaN(props.zoom)) {
-      zoom.value = props.zoom;
-    }
-  }
-);
-
-watch(
-  () => props.pan,
-  () => {
-    if (props.pan) {
-      pan.value.x = props.pan.x;
-      pan.value.y = props.pan.y;
-    }
-  }
-  , { deep: true });
-
-function emit(name: string, event: ZoomableEvent) {
-  if (name === "zoom") {
-    emitNative("update:zoom", event.zoom);
-  } else if (name === "panned") {
-    emitNative("update:pan", event.pan);
-  }
-  emitNative(name as any, event);
-}
+watch(pan, () => {
+  hideOverlay.value = true;
+  printInfo()
+}, { deep: true });
 
 let transform = computed(() => {
   return `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`;
@@ -175,6 +187,7 @@ watch(
 );
 
 onMounted(() => {
+
   const placeholder = document.createElement('div');
   const scrollOverlayApp = createApp(ScrollOverlay, { enableWheelOnKey: props.enableWheelOnKey });
 
@@ -222,17 +235,21 @@ function onMouseLeave() {
 function showOverlay() { hideOverlay.value = false; }
 function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHideOverlay; }
 
-let mouse = useMouse(props, emit, pan, zoom, updateHideOverlay);
+let mouse = useMouse(props, pan, zoom, updateHideOverlay);
 onMounted(() => {
-  useTouch(props, emit, pan, zoom, updateHideOverlay, container, dragging);
+  useTouch(props, pan, zoom, updateHideOverlay, container, dragging);
 })
-let wheel = useWheel(props, emit, pan, zoom, pressedKeys, updateHideOverlay);
-let button = useButtons(props, emit, pan, zoom, updateHideOverlay);
+let wheel = useWheel(props, pan, zoom, pressedKeys, updateHideOverlay);
+let button = useButtons(props, pan, zoom, updateHideOverlay);
 
 function onMouseDown(event: MouseEvent) {
   updateHideOverlay(true);
   mouse.onMouseDown(event);
 }
+
+defineExpose({
+  centerElement
+})
 </script>
 
 <style module>

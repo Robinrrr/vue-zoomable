@@ -115,12 +115,12 @@
     </VueZoomable>
   </div>
   <div v-else>
-    <VueZoomable v-model:dragging="dragging" style="width: 500px; height: 500px; border: 1px solid black"
-      :selector="selector" :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :initialPanX="100" :initialPanY="120"
-      :initialZoom="1.5" :dblClickEnabled="dblClickEnabled" :wheelEnabled="mouseWheelZoomEnabled"
-      :touchEnabled="touchEnabled" :minZoom="0.3" :maxZoom="2" :dblClickZoomStep="0.4" :wheelZoomStep="0.01"
-      v-model:pan="pan" v-model:zoom="zoom" :enableWheelOnKey="documentFlow ? 'Control' : undefined"
-      :enableControllButton="enableControllButton" :mouseEnabled="mouseEnabled" @zoom="showEvent" @panned="showEvent">
+    <VueZoomable ref="child" v-model:dragging="dragging" style="width: 500px; height: 500px; border: 1px solid black"
+      :selector="selector" :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :dblClickEnabled="dblClickEnabled"
+      :wheelEnabled="mouseWheelZoomEnabled" :touchEnabled="touchEnabled" :minZoom="0.3" :maxZoom="2"
+      :dblClickZoomStep="0.4" :wheelZoomStep="0.01" v-model:pan="pan" v-model:zoom="zoom"
+      :enableWheelOnKey="documentFlow ? 'Control' : undefined" :enableControllButton="enableControllButton"
+      :mouseEnabled="mouseEnabled" @zoom="showEvent" @panned="showEvent">
       <div id="zoomable-content">
         <div>
           <div></div>
@@ -128,8 +128,10 @@
         </div>
         <div>
           <div></div>
-          <div></div>
+          <div id="to-center"></div>
         </div>
+
+        <div class="center"></div>
       </div>
     </VueZoomable>
   </div>
@@ -140,6 +142,8 @@
   <div>
     pan: {{ pan }}
   </div>
+
+  <button @click="center">center</button>
 
   <section v-if="documentFlow">
     <h1>Chapter 1</h1>
@@ -271,7 +275,12 @@
 import { ref } from "vue";
 import VueZoomable from "../components/VueZoomable.vue";
 
-const zoom = ref(0.5);
+const child = ref();
+function center() {
+  child.value.centerElement(document.getElementById('to-center'));
+}
+
+const zoom = ref(1);
 const pan = ref({ x: 0, y: 0 });
 const slotContentType = ref("html");
 const selector = ref("#zoomable-content");
@@ -293,7 +302,7 @@ let touchEnabled = ref(true);
 let mouseEnabled = ref(true);
 let mouseWheelZoomEnabled = ref(true);
 let visible = ref(true);
-let documentFlow = ref(true)
+let documentFlow = ref(false)
 let enableControllButton = ref(true);
 </script>
 
@@ -304,8 +313,24 @@ let enableControllButton = ref(true);
 }
 
 #zoomable-content {
+  box-sizing: border-box;
+  border: red 1px solid;
+
+  width: 400px;
+  height: 400px;
   display: flex;
   flex-direction: column;
+}
+
+#zoomable-content>.center {
+  position: absolute;
+  top: 195px;
+  left: 195px;
+
+  width: 10px;
+  height: 10px;
+
+  background-color: greenyellow;
 }
 
 #zoomable-content>div {
@@ -318,5 +343,9 @@ let enableControllButton = ref(true);
   background-color: blue;
   height: 100px;
   width: 100px;
+}
+
+#to-center {
+  background-color: aquamarine !important;
 }
 </style>
