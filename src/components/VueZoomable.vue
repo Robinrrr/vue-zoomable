@@ -13,12 +13,9 @@
 <script setup lang="ts">
 import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
 import { useTouch } from "../composables/useTouch";
-import { useWheel } from "../composables/useWheel";
 import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
-
-
 
 let props = defineProps({
   zoom: {
@@ -124,9 +121,46 @@ const showOverlay = defineModel('showOverlay', { default: false });
 const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 
-function centerElement(element: HTMLElement) {
-  const elementInfo = element.getBoundingClientRect();
+/*
+ * ################################# WATCHERS #################################
+ */
+{
+  watch(zoom, () => {
+    showOverlay.value = false;
+  });
+  watch(pan, () => {
+    showOverlay.value = false;
+  }, { deep: true });
 
+  let lastOverlay = Date.now()
+  function changeShowOverlay() {
+    if (showOverlay.value) {
+      lastOverlay = Date.now();
+
+      setTimeout(() => {
+        if (lastOverlay + props.keepOverlayOpen < Date.now()) {
+          showOverlay.value = false;
+        }
+      }, props.keepOverlayOpen + 10);
+    }
+  }
+  watch(showOverlay, changeShowOverlay);
+
+  let transform = computed(() => {
+    return `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`;
+  });
+
+  function setTransform() {
+    if (!transformTarget.value) return;
+    transformTarget.value.style.transform = transform.value;
+  }
+
+  watch(transform, setTransform, { flush: "post" });
+  onMounted(setTransform);
+}
+
+
+function centerElement(element: HTMLElement) {
   function getCenter(info: DOMRect) {
     return {
       x: info.x + .5 * info.width,
@@ -146,52 +180,10 @@ function centerPoint(pointToCenter: { x: number, y: number }) {
   }
 }
 
-
-
-
-watch(zoom, () => {
-  showOverlay.value = false;
-});
-watch(pan, () => {
-  showOverlay.value = false;
-}, { deep: true });
-
-let lastOverlay = Date.now()
-function changeShowOverlay() {
-  if (showOverlay.value) {
-    lastOverlay = Date.now();
-
-    setTimeout(() => {
-      if (lastOverlay + props.keepOverlayOpen < Date.now()) {
-        showOverlay.value = false;
-      }
-    }, props.keepOverlayOpen + 10);
-  }
-}
-watch(showOverlay, changeShowOverlay);
-
-let transform = computed(() => {
-  return `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`;
-});
-
-function setTransform() {
-  if (!transformTarget.value) return;
-  transformTarget.value.style.transform = transform.value;
-}
-
-watch(
-  transform,
-  () => {
-    setTransform();
-  },
-  {
-    flush: "post",
-  }
-);
-
+/*
+ * ################################# DOUBLE CLICK #################################
+ */
 onMounted(() => {
-  setTransform();
-
   container.value.addEventListener('dblclick', (event: PointerEvent) => {
     centerPoint({ x: event.clientX, y: event.clientY });
     zoom.value += props.dblClickZoomStep;
