@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
+import { computed, ref, Ref, createApp, onMounted, watch, nextTick } from 'vue';
 import { useTouch } from "../composables/useTouch";
 import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
@@ -162,15 +162,14 @@ const pan = defineModel('pan', { default: { x: 0, y: 0 } });
   onMounted(setTransform);
 }
 
+function getCenter(info: DOMRect) {
+  return {
+    x: info.x + .5 * info.width,
+    y: info.y + .5 * info.height,
+  };
+}
 
 function centerElement(element: HTMLElement) {
-  function getCenter(info: DOMRect) {
-    return {
-      x: info.x + .5 * info.width,
-      y: info.y + .5 * info.height,
-    };
-  }
-
   centerPoint(getCenter(element.getBoundingClientRect()));
 }
 
@@ -180,6 +179,31 @@ function centerPoint(pointToCenter: { x: number, y: number }) {
   pan.value = {
     x: - (pointToCenter.x - containerInfo.x - pan.value.x) + .5 * containerInfo.width,
     y: - (pointToCenter.y - containerInfo.y - pan.value.y) + .5 * containerInfo.height,
+  }
+}
+
+async function zoomIntoPoint(deltaZoom: number, oldPoint: { x: number, y: number }) {
+  // changing the zoom, zooms into the center of transform target. 
+  // thus I need to find the point, relative to the transform target center, 
+  // to calculate by how much I need to shift the pan for each zoom
+  const centerTransformTarget = getCenter(transformTarget.value.getBoundingClientRect());
+  const normalizedDistance = {
+    x: (oldPoint.x - centerTransformTarget.x) / zoom.value,
+    y: (oldPoint.y - centerTransformTarget.y) / zoom.value,
+  };
+
+  zoom.value += deltaZoom;
+  await nextTick();
+
+  const newPoint = {
+    x: (normalizedDistance.x * zoom.value) + centerTransformTarget.x,
+    y: (normalizedDistance.y * zoom.value) + centerTransformTarget.y,
+  };
+
+  // move new point on the transform target to the old point on the canvas
+  pan.value = {
+    x: pan.value.x + (oldPoint.x - newPoint.x),
+    y: pan.value.y + (oldPoint.y - newPoint.y),
   }
 }
 
@@ -220,7 +244,8 @@ onMounted(() => {
       return;
     }
 
-    zoom.value += props.dblClickZoomStep * event.deltaY / Math.abs(event.deltaY);
+    // centerPoint({ x: event.clientX, y: event.clientY });
+    zoomIntoPoint(props.dblClickZoomStep * event.deltaY / Math.abs(event.deltaY), { x: event.clientX, y: event.clientY })
   });
 });
 
