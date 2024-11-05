@@ -59,10 +59,9 @@
   <div v-else>
     <VueZoomable ref="child" v-model:dragging="dragging" style="width: 500px; height: 500px; border: 1px solid black"
       :selector="selector" :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :dblClickEnabled="dblClickEnabled"
-      :wheelEnabled="mouseWheelZoomEnabled" :touchEnabled="touchEnabled" :minZoom="0.3" :maxZoom="2"
-      :dblClickZoomStep="0.4" :wheelZoomStep="0.01" v-model:pan="pan" v-model:zoom="zoom"
-      :enableWheelOnKey="documentFlow ? 'Control' : undefined" :enableControllButton="enableControllButton"
-      :mouseEnabled="mouseEnabled" @zoom="showEvent" @panned="showEvent">
+      :wheelEnabled="mouseWheelZoomEnabled" :touchEnabled="touchEnabled" :dblClickZoomStep="0.4" :wheelZoomStep="0.01"
+      v-model:pan="pan" v-model:zoom="zoom" :enableWheelOnKey="documentFlow ? 'Control' : undefined"
+      :enableControllButton="enableControllButton" :mouseEnabled="mouseEnabled" @zoom="showEvent" @panned="showEvent">
       <div id="zoomable-content">
         <div>
           <div></div>

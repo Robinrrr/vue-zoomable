@@ -1,5 +1,5 @@
 <template>
-  <div ref="container" class="container" :class="$style.container" @wheel="onWheel">
+  <div ref="container" class="container" :class="$style.container">
     <slot></slot>
     <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
       @button-zoom="button.onZoom"></ControlButtons>
@@ -127,7 +127,10 @@ const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 {
   watch(zoom, () => {
     showOverlay.value = false;
+    if (zoom.value < props.minZoom) zoom.value = props.minZoom;
+    else if (zoom.value > props.maxZoom && props.maxZoom > 0) zoom.value = props.maxZoom;
   });
+
   watch(pan, () => {
     showOverlay.value = false;
   }, { deep: true });
@@ -196,32 +199,30 @@ onMounted(() => {
 const pressedKeys: Set<String> = new Set<String>();
 const isInContainer = ref(false);
 onMounted(() => {
-  // track the keys, which are currently pressed
+  // track the currently pressed keys, and mouse location
   document.addEventListener('keydown', (event) => { pressedKeys.add(event.key); });
   document.addEventListener('keyup', (event) => { pressedKeys.delete(event.key); });
-  // track if the mouse is within the container
   container.value.addEventListener('mouseenter', () => { isInContainer.value = true });
   container.value.addEventListener('mouseleave', () => { isInContainer.value = false });
 
-  window.addEventListener(
-    'wheel',
-    event => {
-      if (!isInContainer.value || props.enableWheelOnKey !== "Control") return;
-      if (event.ctrlKey) event.preventDefault();
-    }, { passive: false },
-  );
-});
-function onWheel(ev: WheelEvent) {
-  // check if all conditions are met to scroll
-  if (!props.wheelEnabled || !props.zoomEnabled) return;
-  if (props.enableWheelOnKey !== undefined && !pressedKeys.has(props.enableWheelOnKey)) {
-    showOverlay.value = true;
-    return;
-  }
+  // prevent zooming in the viewport if necessary
+  window.addEventListener('wheel', event => {
+    if (!isInContainer.value || props.enableWheelOnKey !== "Control") return;
+    if (event.ctrlKey) event.preventDefault();
+  }, { passive: false });
 
-  // normalizes the value of ev.deltaY to either be 1 or -1 and multiplies it with the double click zoom step?
-  zoom.value += props.dblClickZoomStep * ev.deltaY / Math.abs(ev.deltaY);
-}
+  // the actual scrolling event within container
+  container.value.addEventListener('wheel', (event: WheelEvent) => {
+    // check if all conditions are met to scroll
+    if (!props.wheelEnabled || !props.zoomEnabled) return;
+    if (props.enableWheelOnKey !== undefined && !pressedKeys.has(props.enableWheelOnKey)) {
+      showOverlay.value = true;
+      return;
+    }
+
+    zoom.value += props.dblClickZoomStep * event.deltaY / Math.abs(event.deltaY);
+  });
+});
 
 onMounted(() => {
   useTouch(props, pan, zoom, container, dragging);
