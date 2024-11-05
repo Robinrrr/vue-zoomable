@@ -1,6 +1,6 @@
 <template>
-  <div ref="container" class="container" :class="$style.container" @dblclick="mouse.onDblClick" @wheel="wheel.onWheel"
-    @mouseleave="onMouseLeave" @mouseenter="onMouseEnter">
+  <div ref="container" class="container" :class="$style.container" @wheel="wheel.onWheel" @mouseleave="onMouseLeave"
+    @mouseenter="onMouseEnter">
     <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
       @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControlButtons>
     <slot></slot>
@@ -132,8 +132,7 @@ function centerElement(element: HTMLElement) {
 }
 
 function centerPoint(pointToCenter: { x: number, y: number }) {
-  const containerInfo = document.getElementsByClassName('container')[0].getBoundingClientRect();
-
+  const containerInfo = container.value.getBoundingClientRect();
 
   pan.value = {
     x: - (pointToCenter.x - containerInfo.x - pan.value.x) + .5 * containerInfo.width,
@@ -141,30 +140,11 @@ function centerPoint(pointToCenter: { x: number, y: number }) {
   }
 }
 
-function printInfo() {
-  console.log();
-
-  const itemInfo = document.getElementsByClassName('center')[0].getBoundingClientRect();
-  console.log('item', itemInfo);
-
-  const containerInfo = document.getElementsByClassName('container')[0].getBoundingClientRect();
-  console.log('container', containerInfo);
-
-  const delta = {
-    x: itemInfo.x - containerInfo.x,
-    y: itemInfo.y - containerInfo.y,
-  }
-
-  console.log('delta', delta)
-}
-
 watch(zoom, () => {
   hideOverlay.value = true;
-  printInfo();
 });
 watch(pan, () => {
   hideOverlay.value = true;
-  printInfo()
 }, { deep: true });
 
 let transform = computed(() => {
@@ -187,7 +167,6 @@ watch(
 );
 
 onMounted(() => {
-
   const placeholder = document.createElement('div');
   const scrollOverlayApp = createApp(ScrollOverlay, { enableWheelOnKey: props.enableWheelOnKey });
 
@@ -198,6 +177,11 @@ onMounted(() => {
   container.value.appendChild(placeholder);
 
   setTransform();
+
+  container.value.addEventListener('dblclick', (event: PointerEvent) => {
+    centerPoint({ x: event.clientX, y: event.clientY });
+    zoom.value += props.dblClickZoomStep;
+  })
 });
 
 
