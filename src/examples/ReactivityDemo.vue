@@ -23,7 +23,7 @@
   </form>
 
   <div>
-    <VueZoomable ref="child" v-model:dragging="dragging" style="width: 700px; height: 500px; border: 1px solid black"
+    <VueZoomable ref="child" v-model:dragging="dragging" style="width: 100%; height: 500px; border: 1px solid black"
       selector="#zoomable-content" v-model:pan="pan" v-model:zoom="zoom"
       :enableWheelOnKey="documentFlow ? 'Control' : undefined">
       <div id="zoomable-content">
@@ -33,7 +33,7 @@
         </div>
         <div>
           <div></div>
-          <div id="to-center"></div>
+          <div id="to-center">A-312</div>
         </div>
 
         <div class="center"></div>
