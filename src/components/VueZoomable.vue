@@ -9,7 +9,6 @@
 
 <script setup lang="ts">
 import { computed, ref, Ref, createApp, onMounted, watch, ModelRef } from 'vue';
-import { useMouse } from "../composables/useMouse";
 import { useTouch } from "../composables/useTouch";
 import { useWheel } from "../composables/useWheel";
 import { useButtons } from "../composables/useButtons";
@@ -219,17 +218,11 @@ function onMouseLeave() {
 function showOverlay() { hideOverlay.value = false; }
 function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHideOverlay; }
 
-let mouse = useMouse(props, pan, zoom, updateHideOverlay);
 onMounted(() => {
   useTouch(props, pan, zoom, updateHideOverlay, container, dragging);
 })
 let wheel = useWheel(props, pan, zoom, pressedKeys, updateHideOverlay);
 let button = useButtons(props, pan, zoom, updateHideOverlay);
-
-function onMouseDown(event: MouseEvent) {
-  updateHideOverlay(true);
-  mouse.onMouseDown(event);
-}
 
 defineExpose({
   centerElement
