@@ -1,8 +1,8 @@
 <template>
   <div ref="container" class="container" :class="$style.container">
     <slot></slot>
-    <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
-      @button-zoom="button.onZoom"></ControlButtons>
+    <ControlButtons v-if="props.enableControllButton" @button-home="onHome" @button-pan="onPan" @button-zoom="onZoom">
+    </ControlButtons>
 
     <ScrollOverlay v-model="showOverlay">
       Use '{{ props.enableWheelOnKey }}' + 'scroll' to zoom.
@@ -11,21 +11,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Ref, createApp, onMounted, watch, nextTick } from 'vue';
-import { useButtons } from "../composables/useButtons";
+import { computed, ref, onMounted, watch, nextTick } from 'vue';
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
 
 let props = defineProps({
-  zoom: {
-    type: Number,
-    default: null,
-  },
-
-  pan: {
-    type: Object,
-    default: null,
-  },
   selector: {
     type: String,
     default: "* > *",
@@ -124,6 +114,8 @@ const pan = defineModel('pan', { default: { x: 0, y: 0 } });
  * ################################# WATCHERS #################################
  */
 {
+  watch(transformTarget, onHome, { once: true });
+
   watch(zoom, () => {
     showOverlay.value = false;
 
@@ -159,7 +151,6 @@ const pan = defineModel('pan', { default: { x: 0, y: 0 } });
   }
 
   watch(transform, setTransform, { flush: "post" });
-  onMounted(setTransform);
 }
 
 function getCenter(info: DOMRect) {
@@ -355,7 +346,62 @@ onMounted(() => {
 
   container.value.style.touchAction = 'none';
 })
-let button = useButtons(props, pan, zoom);
+
+/*
+ * ################################# BUTTONS #################################
+ */
+interface PanDirection {
+  x: number;
+  y: number;
+}
+
+let isHolding = false;
+
+function holding(callback: Function, delay: number) {
+  if (!isHolding) return;
+
+  callback();
+  setTimeout(() => { holding(callback, delay) }, delay);
+}
+
+function onPan(direction: PanDirection, usingHold: boolean = false) {
+  pan.value = {
+    x: pan.value.x + direction.x * props.buttonPanStep,
+    y: pan.value.y + direction.y * props.buttonPanStep
+  }
+
+  isHolding = usingHold;
+  if (isHolding) {
+    setTimeout(() => {
+      holding(() => {
+        pan.value = {
+          x: pan.value.x + direction.x * props.buttonPanStep * 0.5,
+          y: pan.value.y + direction.y * props.buttonPanStep * 0.5
+        }
+      }, 50)
+    }, 300);
+  }
+}
+
+function onZoom(direction: number, usingHold: boolean = false) {
+  zoomIntoPoint(direction * props.buttonZoomStep, getCenter(container.value.getBoundingClientRect()));
+
+
+  isHolding = usingHold;
+  if (isHolding) {
+    setTimeout(() => {
+      holding(() => {
+        zoomIntoPoint(direction * props.buttonZoomStep * 0.5, getCenter(container.value.getBoundingClientRect()));
+        zoom.value += direction * props.buttonZoomStep * 0.5;
+
+      }, 50)
+    }, 300);
+  }
+}
+
+async function onHome() {
+  centerElementWithZoom(transformTarget.value, 1);
+}
 
 defineExpose({
   centerElement,
