@@ -12,7 +12,6 @@
 
 <script setup lang="ts">
 import { computed, ref, Ref, createApp, onMounted, watch, nextTick } from 'vue';
-import { useTouch } from "../composables/useTouch";
 import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
@@ -127,6 +126,7 @@ const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 {
   watch(zoom, () => {
     showOverlay.value = false;
+
     if (zoom.value < props.minZoom) zoom.value = props.minZoom;
     else if (zoom.value > props.maxZoom && props.maxZoom > 0) zoom.value = props.maxZoom;
   });
@@ -244,13 +244,99 @@ onMounted(() => {
       return;
     }
 
-    // centerPoint({ x: event.clientX, y: event.clientY });
     zoomIntoPoint(props.dblClickZoomStep * event.deltaY / Math.abs(event.deltaY), { x: event.clientX, y: event.clientY })
   });
 });
 
+/*
+ * ################################# TOUCH/POINTER PAN/ZOOM #################################
+ */
 onMounted(() => {
-  useTouch(props, pan, zoom, container, dragging);
+  let movingEvId = new Set();
+  let evCache = new Array();
+  let prevDiff = -1;
+
+  function remove_event(ev: PointerEvent) {
+    for (var i = 0; i < evCache.length; i++) {
+      if (evCache[i].pointerId == ev.pointerId) {
+        evCache.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  function pointerdown_handler(ev: PointerEvent) {
+    if (ev.button === 1 || ev.button === 2) return;
+    if (ev.pointerType === "mouse" && !props.mouseEnabled) return;
+    if (ev.pointerType === "touch" && !props.touchEnabled) return;
+
+    evCache.push(ev);
+  }
+
+  function pointerup_handler(ev: PointerEvent) {
+    remove_event(ev);
+
+    movingEvId.delete(ev.pointerId);
+    setTimeout(() => {
+      dragging.value = movingEvId.size > 0;
+    }, props.draggingDelay);
+
+    if (evCache.length < 2) prevDiff = -1;
+  }
+
+  function pointermove_handler(ev: PointerEvent) {
+    let previousEvent = undefined;
+    for (var i = 0; i < evCache.length; i++) {
+      if (ev.pointerId == evCache[i].pointerId) {
+        previousEvent = evCache[i];
+        evCache[i] = ev;
+        break;
+      }
+    }
+
+    if (previousEvent == undefined) return;
+
+    movingEvId.add(ev.pointerId);
+    dragging.value = true;
+
+    // If two pointers are down, check for pinch gestures
+    if (evCache.length == 2) {
+      // Calculate the distance between the two pointers
+      var curDiff = Math.sqrt(
+        Math.pow(evCache[1].clientX - evCache[0].clientX, 2) +
+        Math.pow(evCache[1].clientY - evCache[0].clientY, 2),
+      );
+
+      if (prevDiff > 0) {
+        const eventOrigin = {
+          x: (evCache[0].clientX + evCache[1].clientX) / 2,
+          y: (evCache[0].clientY + evCache[1].clientY) / 2,
+        };
+
+        zoomIntoPoint((curDiff - prevDiff) * 0.01, eventOrigin);
+
+      }
+
+      // Cache the distance for the next move event
+      prevDiff = curDiff;
+    }
+
+    else if (evCache.length == 1) {
+      if (!props.panEnabled) return;
+
+      pan.value = {
+        x: pan.value.x + (ev.clientX - previousEvent.clientX),
+        y: pan.value.y + (ev.clientY - previousEvent.clientY),
+      }
+
+    }
+  }
+
+  container.value.onpointerdown = pointerdown_handler;
+  window.onpointerup = pointerup_handler;
+  window.onpointermove = pointermove_handler;
+
+  container.value.style.touchAction = 'none';
 })
 let button = useButtons(props, pan, zoom);
 
