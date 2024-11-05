@@ -287,6 +287,7 @@ onMounted(() => {
   }
 
   function pointermove_handler(event: PointerEvent) {
+    if (!eventCache.some(testEvent => testEvent.pointerId === event.pointerId)) return;
     previousEvents[event.pointerId] = currentEvents[event.pointerId];
     currentEvents[event.pointerId] = event;
 
