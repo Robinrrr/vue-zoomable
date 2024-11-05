@@ -5,7 +5,6 @@ export function useTouch(
     props: any,
     pan: Ref<{ x: number, y: number }>,
     zoom: Ref<number>,
-    setOverlay: Function,
     container: Ref<HTMLElement>,
 		dragging: ModelRef<boolean>,
 ) {

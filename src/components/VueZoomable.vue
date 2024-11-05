@@ -1,9 +1,12 @@
 <template>
-  <div ref="container" class="container" :class="$style.container" @wheel="wheel.onWheel" @mouseleave="onMouseLeave"
-    @mouseenter="onMouseEnter">
-    <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
-      @button-zoom="button.onZoom" @mousedown="updateHideOverlay(true);"></ControlButtons>
+  <div ref="container" class="container" :class="$style.container" @wheel="onWheel">
     <slot></slot>
+    <ControlButtons v-if="props.enableControllButton" @button-home="button.onHome" @button-pan="button.onPan"
+      @button-zoom="button.onZoom"></ControlButtons>
+
+    <ScrollOverlay v-model="showOverlay">
+      Use '{{ props.enableWheelOnKey }}' + 'scroll' to zoom.
+    </ScrollOverlay>
   </div>
 </template>
 
@@ -15,9 +18,7 @@ import { useButtons } from "../composables/useButtons";
 import ControlButtons from "./ControlButtons.vue";
 import ScrollOverlay from './ScrollOverlay.vue';
 
-const dragging = defineModel('dragging', { default: false });
 
-const hideOverlay: Ref<boolean> = ref(true);
 
 let props = defineProps({
   zoom: {
@@ -109,11 +110,17 @@ let props = defineProps({
     type: Number,
     default: 10,
   },
+  keepOverlayOpen: {
+    type: Number,
+    default: 1000,
+  }
 });
 
 let container = ref();
 let transformTarget = computed<HTMLElement>(() => container.value?.querySelector(props.selector))
 
+const dragging = defineModel('dragging', { default: false });
+const showOverlay = defineModel('showOverlay', { default: false });
 const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 
@@ -139,12 +146,29 @@ function centerPoint(pointToCenter: { x: number, y: number }) {
   }
 }
 
+
+
+
 watch(zoom, () => {
-  hideOverlay.value = true;
+  showOverlay.value = false;
 });
 watch(pan, () => {
-  hideOverlay.value = true;
+  showOverlay.value = false;
 }, { deep: true });
+
+let lastOverlay = Date.now()
+function changeShowOverlay() {
+  if (showOverlay.value) {
+    lastOverlay = Date.now();
+
+    setTimeout(() => {
+      if (lastOverlay + props.keepOverlayOpen < Date.now()) {
+        showOverlay.value = false;
+      }
+    }, props.keepOverlayOpen + 10);
+  }
+}
+watch(showOverlay, changeShowOverlay);
 
 let transform = computed(() => {
   return `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`;
@@ -166,15 +190,6 @@ watch(
 );
 
 onMounted(() => {
-  const placeholder = document.createElement('div');
-  const scrollOverlayApp = createApp(ScrollOverlay, { enableWheelOnKey: props.enableWheelOnKey });
-
-  // needs to be injected before it is mounted
-  scrollOverlayApp.provide("hideOverlay", { hideOverlay });
-
-  scrollOverlayApp.mount(placeholder)
-  container.value.appendChild(placeholder);
-
   setTransform();
 
   container.value.addEventListener('dblclick', (event: PointerEvent) => {
@@ -183,10 +198,19 @@ onMounted(() => {
   })
 });
 
-
-const pressedKeys: Ref<Set<String>> = ref(new Set<String>());
-
+/*
+ * ################################# MOUSEWHEEL #################################
+ */
+const pressedKeys: Set<String> = new Set<String>();
+const isInContainer = ref(false);
 onMounted(() => {
+  // track the keys, which are currently pressed
+  document.addEventListener('keydown', (event) => { pressedKeys.add(event.key); });
+  document.addEventListener('keyup', (event) => { pressedKeys.delete(event.key); });
+  // track if the mouse is within the container
+  container.value.addEventListener('mouseenter', () => { isInContainer.value = true });
+  container.value.addEventListener('mouseleave', () => { isInContainer.value = false });
+
   window.addEventListener(
     'wheel',
     event => {
@@ -194,35 +218,23 @@ onMounted(() => {
       if (event.ctrlKey) event.preventDefault();
     }, { passive: false },
   );
+});
+function onWheel(ev: WheelEvent) {
+  // check if all conditions are met to scroll
+  if (!props.wheelEnabled || !props.zoomEnabled) return;
+  if (props.enableWheelOnKey !== undefined && !pressedKeys.has(props.enableWheelOnKey)) {
+    showOverlay.value = true;
+    return;
+  }
 
-  // track the keys, which are currently pressed
-  document.addEventListener('keydown', (event) => {
-    pressedKeys.value.add(event.key);
-    if (event.key === props.enableWheelOnKey) hideOverlay.value = true;
-  });
-  document.addEventListener('keyup', (event) => { pressedKeys.value.delete(event.key); });
-})
-
-// track if the mouse is in the container
-const isInContainer = ref(false);
-
-// track when the mouse leaves, to then hide the overlay
-function onMouseEnter() {
-  isInContainer.value = true;
+  // normalizes the value of ev.deltaY to either be 1 or -1 and multiplies it with the double click zoom step?
+  zoom.value += props.dblClickZoomStep * ev.deltaY / Math.abs(ev.deltaY);
 }
-function onMouseLeave() {
-  hideOverlay.value = true;
-  isInContainer.value = false;
-}
-
-function showOverlay() { hideOverlay.value = false; }
-function updateHideOverlay(newHideOverlay: boolean) { hideOverlay.value = newHideOverlay; }
 
 onMounted(() => {
-  useTouch(props, pan, zoom, updateHideOverlay, container, dragging);
+  useTouch(props, pan, zoom, container, dragging);
 })
-let wheel = useWheel(props, pan, zoom, pressedKeys, updateHideOverlay);
-let button = useButtons(props, pan, zoom, updateHideOverlay);
+let button = useButtons(props, pan, zoom);
 
 defineExpose({
   centerElement

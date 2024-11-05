@@ -9,8 +9,7 @@ interface PanDirection {
 export function useButtons(
     props: any,
     pan: Ref<{ x: number, y: number }>,
-    zoom: Ref<number>,
-    setOverlay: Function) {
+    zoom: Ref<number>) {
 
 
     const eventType: string = "controll_button";
