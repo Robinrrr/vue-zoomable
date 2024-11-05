@@ -57,7 +57,7 @@
     </VueZoomable>
   </div>
   <div v-else>
-    <VueZoomable ref="child" v-model:dragging="dragging" style="width: 500px; height: 500px; border: 1px solid black"
+    <VueZoomable ref="child" v-model:dragging="dragging" style="width: 700px; height: 500px; border: 1px solid black"
       :selector="selector" :zoomEnabled="zoomEnabled" :panEnabled="panEnabled" :dblClickEnabled="dblClickEnabled"
       :wheelEnabled="mouseWheelZoomEnabled" :touchEnabled="touchEnabled" :dblClickZoomStep="0.4" :wheelZoomStep="0.01"
       v-model:pan="pan" v-model:zoom="zoom" :enableWheelOnKey="documentFlow ? 'Control' : undefined"
@@ -218,7 +218,7 @@ import VueZoomable from "../components/VueZoomable.vue";
 
 const child = ref();
 function center() {
-  child.value.centerElement(document.getElementById('to-center'));
+  child.value.centerElementWithZoom(document.getElementById('to-center'));
 }
 
 const zoom = ref(1);

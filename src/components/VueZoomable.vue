@@ -32,7 +32,7 @@ let props = defineProps({
   },
   maxZoom: {
     type: Number,
-    default: 3,
+    default: -1,
   },
   minZoom: {
     type: Number,
@@ -171,6 +171,20 @@ function getCenter(info: DOMRect) {
 
 function centerElement(element: HTMLElement) {
   centerPoint(getCenter(element.getBoundingClientRect()));
+}
+
+async function centerElementWithZoom(element: HTMLElement, p: number = 2) {
+  const elementInfo = element.getBoundingClientRect();
+  const normalizedDimensions = {
+    x: elementInfo.width / zoom.value * p,
+    y: elementInfo.height / zoom.value * p,
+  };
+
+  const containerDimensions = container.value.getBoundingClientRect();
+  zoom.value = Math.min(containerDimensions.width / normalizedDimensions.x, containerDimensions.height / normalizedDimensions.y);
+
+  await nextTick();
+  centerElement(element);
 }
 
 function centerPoint(pointToCenter: { x: number, y: number }) {
@@ -344,7 +358,8 @@ onMounted(() => {
 let button = useButtons(props, pan, zoom);
 
 defineExpose({
-  centerElement
+  centerElement,
+  centerElementWithZoom,
 })
 </script>
 
