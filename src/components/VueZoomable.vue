@@ -1,8 +1,7 @@
 <template>
   <div ref="container" class="container" :class="$style.container">
     <slot></slot>
-    <ControlButtons v-if="props.enableControllButton" @button-home="onHome" @button-pan="onPan" @button-zoom="onZoom">
-    </ControlButtons>
+    <ControlButtons v-if="props.enableControlButton" @button-home="onHome" @button-pan="onPan" @button-zoom="onZoom" />
 
     <ScrollOverlay v-model="showOverlay">
       Use '{{ props.enableWheelOnKey }}' + 'scroll' to zoom.
@@ -28,18 +27,6 @@ let props = defineProps({
     type: Number,
     default: 0.5,
   },
-  initialPanX: {
-    type: Number,
-    default: 0,
-  },
-  initialPanY: {
-    type: Number,
-    default: 0,
-  },
-  initialZoom: {
-    type: Number,
-    default: 1,
-  },
   dblClickZoomStep: {
     type: Number,
     default: 0.4,
@@ -48,33 +35,9 @@ let props = defineProps({
     type: Number,
     default: 0.05,
   },
-  panEnabled: {
+  enableControlButton: {
     type: Boolean,
     default: true,
-  },
-  zoomEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  mouseEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  touchEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  dblClickEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  wheelEnabled: {
-    type: Boolean,
-    default: true,
-  },
-  enableControllButton: {
-    type: Boolean,
-    default: false,
   },
   buttonPanStep: {
     type: Number,
@@ -242,8 +205,6 @@ onMounted(() => {
 
   // the actual scrolling event within container
   container.value.addEventListener('wheel', (event: WheelEvent) => {
-    // check if all conditions are met to scroll
-    if (!props.wheelEnabled || !props.zoomEnabled) return;
     if (props.enableWheelOnKey !== undefined && !pressedKeys.has(props.enableWheelOnKey)) {
       showOverlay.value = true;
       return;
@@ -265,8 +226,6 @@ onMounted(() => {
 
   function pointerdown_handler(event: PointerEvent) {
     if (event.button === 1 || event.button === 2) return;
-    if (event.pointerType === "mouse" && !props.mouseEnabled) return;
-    if (event.pointerType === "touch" && !props.touchEnabled) return;
 
     eventCache.push(event);
     currentEvents[event.pointerId] = event;
@@ -406,6 +365,9 @@ async function onHome() {
 defineExpose({
   centerElement,
   centerElementWithZoom,
+  onPan,
+  onZoom,
+  onHome,
 })
 </script>
 
