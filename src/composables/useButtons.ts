@@ -1,5 +1,4 @@
 import { Ref } from "vue";
-import { useMove } from "./move";
 
 interface PanDirection {
     x: number;
