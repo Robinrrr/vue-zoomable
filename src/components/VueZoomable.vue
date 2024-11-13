@@ -74,7 +74,7 @@ const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 
 const panLock = defineModel('panLock', { default: false });
-const zoomLock = defineModel('panLock', { default: false });
+const zoomLock = defineModel('zoomLock', { default: false });
 
 /*
  * ################################# WATCHERS #################################
