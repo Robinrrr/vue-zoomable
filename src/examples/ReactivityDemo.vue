@@ -182,7 +182,7 @@ import VueZoomable from "../components/VueZoomable.vue";
 
 const child = ref();
 function center() {
-  child.value.centerElementWithZoom(document.getElementById('to-center'));
+  child.value.centerElementWithZoom(document.getElementById('to-center'), 0);
 }
 
 const zoom = ref(1);

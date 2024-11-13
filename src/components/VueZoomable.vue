@@ -127,17 +127,20 @@ function centerElement(element: HTMLElement) {
   centerPoint(getCenter(element.getBoundingClientRect()));
 }
 
-async function centerElementWithZoom(element: HTMLElement, p: number = 2) {
-  const elementInfo = element.getBoundingClientRect();
-  const normalizedDimensions = {
-    x: elementInfo.width / zoom.value * p,
-    y: elementInfo.height / zoom.value * p,
-  };
+const logConst = 1 / Math.log(2);
+async function centerElementWithZoom(element: HTMLElement, p: number = 0) {
+  centerElement(element);
 
-  const containerDimensions = container.value.getBoundingClientRect();
-  zoom.value = Math.min(containerDimensions.width / normalizedDimensions.x, containerDimensions.height / normalizedDimensions.y);
+  for (let i = 0; i < 1; i++) {
+    const elementInfo = element.getBoundingClientRect();
+    const containerDimensions = container.value.getBoundingClientRect();
 
-  await nextTick();
+    const x = Math.min(containerDimensions.width / (element.offsetWidth + p), containerDimensions.height / (element.offsetHeight + p))
+    const zoomCalc = logConst * (Math.log(x * 2))
+    zoom.value = x;
+    await nextTick();
+  }
+
   centerElement(element);
 }
 
@@ -359,7 +362,7 @@ function onZoom(direction: number, usingHold: boolean = false) {
 }
 
 async function onHome() {
-  centerElementWithZoom(transformTarget.value, 1);
+  centerElementWithZoom(transformTarget.value, 0);
 }
 
 defineExpose({

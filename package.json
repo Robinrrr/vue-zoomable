@@ -1,6 +1,6 @@
 {
   "name": "vue-zoomable-cute",
-  "version": "1.3.0",
+  "version": "1.3.6",
   "scripts": {
     "dev": "SERVER_MODE=local vite",
     "dev:tunnel": "SERVER_MODE=tunnel vite",

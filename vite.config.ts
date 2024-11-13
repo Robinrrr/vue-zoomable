@@ -5,7 +5,7 @@ import dts from 'vite-plugin-dts';
 
 const SERVER_CONFIG = {
 	local: {
-		port: 3000,
+		port: 3001,
 	},
 	tunnel: {
 		port: 3000,
