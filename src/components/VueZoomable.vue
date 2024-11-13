@@ -73,21 +73,34 @@ const showOverlay = defineModel('showOverlay', { default: false });
 const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 
+const panLock = defineModel('panLock', { default: false });
+const zoomLock = defineModel('panLock', { default: false });
+
 /*
  * ################################# WATCHERS #################################
  */
 {
   watch(transformTarget, onHome, { once: true });
 
-  watch(zoom, () => {
+  watch(zoom, (newZoom, oldZoom) => {
     showOverlay.value = false;
+
+    if (zoomLock.value) {
+      zoom.value = oldZoom;
+      return;
+    }
 
     if (zoom.value < props.minZoom) zoom.value = props.minZoom;
     else if (zoom.value > props.maxZoom && props.maxZoom > 0) zoom.value = props.maxZoom;
   });
 
-  watch(pan, () => {
+  watch(pan, (newPan, oldPan) => {
     showOverlay.value = false;
+
+    if (panLock.value) {
+      pan.value = oldPan;
+      return;
+    }
   }, { deep: true });
 
   let lastOverlay = Date.now()
