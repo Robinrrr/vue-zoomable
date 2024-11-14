@@ -107,7 +107,7 @@ const enableZoom = defineModel('enableZoom', { default: true });
   });
 
   let panWatch = false;
-  watch(pan, (newPan: { x: Number, y: Number }, oldPan: { x: Number, y: Number }) => {
+  watch(pan, (newPan: { x: number, y: number }, oldPan: { x: number, y: number }) => {
     if (panWatch) {
       panWatch = false;
       return;
