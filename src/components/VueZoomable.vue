@@ -73,31 +73,50 @@ const showOverlay = defineModel('showOverlay', { default: false });
 const zoom = defineModel('zoom', { default: 1 });
 const pan = defineModel('pan', { default: { x: 0, y: 0 } });
 
-const panLock = defineModel('panLock', { default: false });
-const zoomLock = defineModel('zoomLock', { default: false });
+const enablePan = defineModel('enablePan', { default: true });
+const enableZoom = defineModel('enableZoom', { default: true });
 
 /*
  * ################################# WATCHERS #################################
  */
 {
+
   watch(transformTarget, onHome, { once: true });
 
-  watch(zoom, (newZoom, oldZoom) => {
-    showOverlay.value = false;
-
-    if (zoomLock.value) {
-      zoom.value = oldZoom;
+  let zoomWatch = false;
+  watch(zoom, (newZoom: number, oldZoom: number) => {
+    if (zoomWatch) {
+      zoomWatch = false;
       return;
     }
 
-    if (zoom.value < props.minZoom) zoom.value = props.minZoom;
-    else if (zoom.value > props.maxZoom && props.maxZoom > 0) zoom.value = props.maxZoom;
-  });
-
-  watch(pan, (newPan, oldPan) => {
     showOverlay.value = false;
 
-    if (panLock.value) {
+    const setZoom = (z: number) => {
+      zoomWatch = true;
+      zoom.value = z;
+    }
+
+    if (!enableZoom.value) {
+      setZoom(oldZoom);
+      return;
+    }
+
+    if (zoom.value < props.minZoom) setZoom(props.minZoom);
+    else if (zoom.value > props.maxZoom && props.maxZoom > 0) setZoom(props.maxZoom);
+  });
+
+  let panWatch = false;
+  watch(pan, (newPan: { x: Number, y: Number }, oldPan: { x: Number, y: Number }) => {
+    if (panWatch) {
+      panWatch = false;
+      return;
+    }
+
+    showOverlay.value = false;
+
+    if (!enablePan.value) {
+      panWatch = true;
       pan.value = oldPan;
       return;
     }
