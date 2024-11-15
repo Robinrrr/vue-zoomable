@@ -49,6 +49,27 @@
     :minZoom="0.3" :maxZoom="2" :dblClickZoomStep="0.4" :wheelZoomStep="0.01"
     :enableWheelOnKey="documentFlow ? 'Control' : undefined" :enableControllButton="enableControllButton"
     @zoom="showEvent" @panned="showEvent">
+  <VueZoomable
+    style="width: 500px; height: 500px; border: 1px solid black"
+    selector="#container1"
+    :zoomEnabled="zoomEnabled"
+    :panEnabled="panEnabled"
+    :initialPanX="100"
+    :initialPanY="120"
+    :initialZoom="1.5"
+    :svgChild="true"
+    :dblClickEnabled="dbClickEnabled"
+    :wheelEnabled="mouseWheelZoomEnabled"
+    :touchEnabled="touchEnabled"
+    :minZoom="0.3"
+    :maxZoom="2"
+    :dblClickZoomStep="0.4"
+    :wheelZoomStep="0.01"
+    :wheelKey="documentFlow ? 'Control' : undefined"
+    :enableControllButton="enableControllButton"
+    @zoom="showEvent"
+    @panned="showEvent"
+  >
     <svg class="mysvg" v-if="visible">
       <g id="container1">
         <circle x="10" y="10" r="50" />

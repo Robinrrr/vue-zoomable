@@ -46,6 +46,23 @@
     :touchEnabled="touchEnabled" :minZoom="0.3" :maxZoom="2" :dblClickZoomStep="0.4" :wheelZoomStep="0.01"
     :enableControllButton="enableControllButton" :enableWheelOnKey="documentFlow ? 'Control' : undefined"
     @zoom="showEvent" @panned="showEvent">
+  <VueZoomable
+    style="width: 500px; height: 500px; border: 1px solid black"
+    :zoomEnabled="zoomEnabled"
+    :panEnabled="panEnabled"
+    selector="#boxes"
+    :dblClickEnabled="dbClickEnabled"
+    :wheelEnabled="mouseWheelZoomEnabled"
+    :touchEnabled="touchEnabled"
+    :minZoom="0.3"
+    :maxZoom="2"
+    :dblClickZoomStep="0.4"
+    :wheelZoomStep="0.01"
+    :enableControllButton="enableControllButton"
+    :wheelKey="documentFlow ? 'Control' : undefined"
+    @zoom="showEvent"
+    @panned="showEvent"
+  >
     <div id="boxes">
       <div>
         <div></div>
