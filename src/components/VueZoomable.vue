@@ -1,28 +1,30 @@
 <template>
-  <div
-    ref="container"
-    class="container"
-    :class="$style.container"
-    @mousedown="onMouseDown"
-    @dblclick="mouse.onDblClick"
-    @touchstart="touch.onTouchStart"
-    @wheel="wheel.onWheel"
-    @mouseleave="onMouseLeave"
-    @mouseenter="onMouseEnter"
-  >
-    <ControllButtons
-      v-if="props.enableControllButton"
-      @button-home="button.onHome"
-      @button-pan="button.onPan"
-      @button-zoom="button.onZoom"
-      @mousedown="updateHideOverlay(true)"
-    ></ControllButtons>
-    <slot></slot>
-  </div>
+  <ScrollOverlay :wheel-key="wheelKey" :wheel-enabled="wheelEnabled">
+    <div
+      ref="container"
+      class="container"
+      :class="$style.container"
+      @mousedown="onMouseDown"
+      @dblclick="mouse.onDblClick"
+      @touchstart="touch.onTouchStart"
+      @wheel="wheel.onWheel"
+      @mouseleave="onMouseLeave"
+      @mouseenter="onMouseEnter"
+    >
+      <ControllButtons
+        v-if="props.enableControllButton"
+        @button-home="button.onHome"
+        @button-pan="button.onPan"
+        @button-zoom="button.onZoom"
+        @mousedown="updateHideOverlay(true)"
+      ></ControllButtons>
+      <slot></slot>
+    </div>
+  </ScrollOverlay>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Ref, createApp, onMounted, watch } from "vue";
+import { computed, ref, Ref, onMounted, watch, provide } from "vue";
 import { useMouse } from "../composables/useMouse";
 import { useTouch } from "../composables/useTouch";
 import { useWheel } from "../composables/useWheel";
@@ -182,20 +184,7 @@ watch(
   }
 );
 
-onMounted(() => {
-  const placeholder = document.createElement("div");
-  const scrollOverlayApp = createApp(ScrollOverlay, {
-    enableWheelOnKey: props.enableWheelOnKey,
-  });
-
-  // needs to be injected before it is mounted
-  scrollOverlayApp.provide("hideOverlay", { hideOverlay });
-
-  scrollOverlayApp.mount(placeholder);
-  container.value.appendChild(placeholder);
-
-  setTransform();
-});
+provide("hideOverlay", { hideOverlay });
 
 const pressedKeys: Ref<Set<String>> = ref(new Set<String>());
 
@@ -253,6 +242,7 @@ function onMouseDown(event: MouseEvent) {
 .container {
   overflow: hidden;
   position: relative;
+  min-height: 100%;
 
   transition: transform 0.1s ease-out;
 
